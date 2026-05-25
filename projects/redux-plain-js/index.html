@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Redux Toolkit - Basic JavaScript Web App</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #111; }
+    h1 { margin-bottom: 0.25rem; }
+    .lead { color: #555; margin-top: 0; }
+    code { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+    ol { line-height: 1.7; }
+  </style>
+</head>
+<body>
+  <h1>Redux Toolkit: Basic JavaScript Web App</h1>
+  <p class="lead">A basic JavaScript web app. No React. Open the browser DevTools console to see the store in action.</p>
+
+  <h2>Steps performed</h2>
+  <ol>
+    <li>Created the store with <code>configureStore</code></li>
+    <li>Subscribed to log every state change</li>
+    <li>Dispatched <code>comments/addComment</code> twice</li>
+    <li>Dispatched <code>comments/likeComment</code></li>
+    <li>Dispatched <code>users/signIn</code></li>
+    <li>Dispatched <code>comments/removeComment</code></li>
+    <li>Dispatched <code>comments/fetchComments</code> (async thunk: pending then fulfilled)</li>
+    <li>Unsubscribed</li>
+  </ol>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
