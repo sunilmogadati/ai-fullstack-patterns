@@ -32,6 +32,46 @@ We will use React for examples since that's the most common pairing, but the arc
 ## 3. A brief on React
 
 - React is a JavaScript library for building user interfaces. Components are functions that take input (props) and return JSX, a description of what should appear on screen.
+
+Here is a small example. A parent component (`Greeting`) holds local state and passes it down to a child component (`Hello`) as a prop:
+
+```jsx
+import { useState } from "react";
+
+// Parent component. Owns local state via React's useState hook.
+function Greeting() {
+  const [name, setName] = useState("World");
+  return (
+    <div>
+      <input value={name} onChange={(e) => setName(e.target.value)} />
+      <Hello name={name} />
+    </div>
+  );
+}
+
+// Child component. Receives data through props and renders it.
+function Hello({ name }) {
+  return <h1>Hello, {name}!</h1>;
+}
+```
+
+`useState` is React's built-in hook for local component state. Calling `useState("World")` returns a current value and a setter function. When the user types in the input, the parent calls `setName(...)`, React re-runs `Greeting`, the new `name` flows down to `Hello` as a prop, and `Hello` re-renders with the new value.
+
+Component tree for this example:
+
+```mermaid
+flowchart TD
+    Greeting["Greeting<br/>holds: name (useState)"]
+    Hello["Hello<br/>receives: name (props)"]
+
+    Greeting -->|"name"| Hello
+
+    classDef parent fill:#2a4d7c,color:#fff
+    classDef child fill:#15803d,color:#fff
+    class Greeting parent
+    class Hello child
+```
+
 - The browser's DOM is the live HTML tree the user sees. Manipulating it directly is expensive because every change can trigger layout and paint work.
 - React keeps a lightweight in-memory copy of that tree called the Virtual DOM. The Virtual DOM is fast to build and fast to compare.
 - When state changes, React re-runs the affected component, produces a new Virtual DOM, compares it against the previous one (this step is called reconciliation), and patches only the changed nodes in the real DOM.
