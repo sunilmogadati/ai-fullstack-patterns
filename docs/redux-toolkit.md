@@ -57,6 +57,27 @@ function Hello({ name }) {
 
 `useState` is React's built-in hook for local component state. Calling `useState("World")` returns a current value and a setter function. When the user types in the input, the parent calls `setName(...)`, React re-runs `Greeting`, the new `name` flows down to `Hello` as a prop, and `Hello` re-renders with the new value.
 
+What the rendered page looks like in the browser:
+
+```
++-----------------------------------+
+|  World                            |   <-- input (editable)
++-----------------------------------+
+
+  Hello, World!                          <-- h1 (updates as you type)
+```
+
+The HTML React produces in the real DOM is just plain HTML:
+
+```html
+<div>
+  <input value="World" />
+  <h1>Hello, World!</h1>
+</div>
+```
+
+As the user types into the input, `setName(...)` runs in the parent, React re-runs both components, and React patches the real DOM (specifically the `value` attribute of the input and the text inside the `h1`). The rest of the DOM is untouched.
+
 Component tree for this example:
 
 ```mermaid
