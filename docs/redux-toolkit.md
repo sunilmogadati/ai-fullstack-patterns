@@ -120,6 +120,44 @@ Data in React **flows down**: a parent passes data to its children through props
 
 But children often need to *cause* changes in state owned by a parent (or grandparent). The pattern is: the parent defines an updater function, passes it down as a prop, and the child calls it. The function runs in the parent (where the state lives), updates the state, and the new state flows back down to whichever children need it.
 
+Extending the Greeting and Hello example makes this concrete. Suppose Hello also wants its own input box so the user can change the name from either component. Hello cannot call `setName` directly — that function lives in Greeting's scope, and Hello has no access to it. The pattern is for Greeting to pass `setName` down to Hello as a prop:
+
+```jsx
+import { useState } from "react";
+
+function Greeting() {
+  const [name, setName] = useState("World");
+
+  return (
+    <div>
+      <input value={name} onChange={(e) => setName(e.target.value)} />
+      {/* Pass name (data) DOWN, and pass setName (a callback) DOWN as well. */}
+      <Hello name={name} onChangeName={setName} />
+    </div>
+  );
+}
+
+function Hello({ name, onChangeName }) {
+  return (
+    <div>
+      <h1>Hello, {name}!</h1>
+      {/* Hello's own input. When the user types here, Hello calls
+          the callback it was given. That callback IS Greeting's setName,
+          so the update happens back in Greeting, and the new name flows
+          back down to Hello as a prop. */}
+      <input value={name} onChange={(e) => onChangeName(e.target.value)} />
+    </div>
+  );
+}
+```
+
+When the user types in Hello's input, the `onChange` handler fires `onChangeName(...)`. That function reference is Greeting's `setName`, so the update executes back in Greeting's scope. Greeting's state changes. React re-runs Greeting. The new `name` flows down to Hello as a prop. Hello renders with the new value.
+
+Two properties of this pattern matter:
+
+- **The child cannot mutate parent state directly.** It can only *request* a change by calling a function the parent provided. The state stays owned by the parent.
+- **The child does not know what the callback does.** Hello has no idea `onChangeName` is Greeting's `setName`. Hello just calls the function it was handed. That keeps the child independent of how state is managed above it.
+
 ```mermaid
 flowchart TD
     Parent["Parent<br/>(holds state)"] -->|"props (data + callbacks)"| Child["Child"]
@@ -131,7 +169,7 @@ flowchart TD
     class Child child
 ```
 
-In a deep tree, "passing down" can mean threading the data through many intermediate components, and "callback up" can mean threading callbacks through the same intermediates. That double-threading is the **prop drilling problem** we will see next.
+In a deep tree, "passing down" can mean threading the data through many intermediate components, and "callback up" can mean threading callbacks through the same intermediates. Imagine the same pattern, but the state lives at the top of a five-level component tree, and a deep child needs to trigger an update. The updater function has to be passed down through every intermediate component, even ones that don't use it. That double-threading is the **prop drilling problem** we will see next, and it is one of the things Redux is designed to eliminate.
 
 ---
 
