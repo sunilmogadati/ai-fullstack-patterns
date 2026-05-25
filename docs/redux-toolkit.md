@@ -344,6 +344,12 @@ Three benefits:
 - No wasted re-renders. When cart changes, only the cart subscribers re-render.
 - One place to look when debugging state.
 
+It is worth being explicit about what this pattern eliminates:
+
+- **No more lifting state up.** You no longer need to place shared state at the lowest common ancestor of every component that uses it. The store is the common ancestor for the entire app.
+- **No more drilling callbacks down.** A deep component that needs to *update* shared state no longer requires the parent to pass an updater function through every intermediary. The component dispatches directly.
+- **No more round-trips through carriers.** The "callback goes down, function runs in the parent, new state flows back down through the chain" pattern from Section 4 disappears. The update happens in one place (the reducer), and only the subscribers that actually care are notified.
+
 Three properties of the store worth calling out:
 
 - **One store per application.** Not one per page, not one per feature. The entire app shares one store.
@@ -1034,7 +1040,7 @@ That is enough for a complete production audit trail. Real-world tools take this
 
 The distinction worth holding onto: time-travel debugging is dev-only, but the architectural discipline that *makes time-travel possible* is what powers production observability. You opt into the production audit layer by adding a middleware; the rest of Redux is already doing the work.
 
-### What about thunks? Are not those impure?
+### What about thunks? They have side effects
 
 A natural question: if time-travel depends on purity, how does it work with `createAsyncThunk`? Thunks are not pure. They call APIs, generate timestamps, can fail in different ways on different runs.
 
@@ -1046,7 +1052,7 @@ When you time-travel back to that action, DevTools restores the state snapshot i
 
 The architectural division is:
 
-- **Impure work** (thunks, middleware, side effects) lives outside the reducer cycle and *produces* actions.
+- **Side-effectful work** (thunks, middleware, I/O operations) lives outside the reducer cycle and *produces* actions.
 - **Pure work** (actions, reducers, state transitions) is what gets recorded and replayed.
 
 That separation is exactly why Redux can offer time-travel even in apps that hit real APIs.
@@ -1099,6 +1105,15 @@ What each piece does:
 - **`useSelector((state) => state.comments.items)`** does two things at once:
   1. **Reads** the current value from the store by running the selector function you pass in.
   2. **Subscribes** the component to the store, so after every dispatched action it re-runs the selector and compares the new result to the previous one (using `===` reference equality). If different, the component re-renders with the new value.
+
+  **A note that catches many readers.** You do *not* also need `useState` to make this re-render happen. `useSelector` is itself a re-render trigger, the same way `useState` is. The mental model:
+
+  | Mechanism | What it watches | What triggers a re-render |
+  |---|---|---|
+  | `useState` | a value local to this component | the setter being called |
+  | `useSelector` | a slice of the Redux store | that slice changing (by reference) |
+
+  A component reading `loading` and `error` from the store needs only `useSelector` for that data — not `useState`. It may *also* use `useState` for purely local UI state (a draft input value, whether a modal is open), but that is separate state, not Redux state.
 - **`useDispatch()`** returns the store's `dispatch` function. This is the only way to trigger a state change from a component: you never call reducers yourself. You call `dispatch` with an action creator from your slice (like `addComment({ text: "..." })`) or a raw action object, and it fires the action through middleware to the reducer.
 
 Two hooks. That is the entire React integration in 2026.
