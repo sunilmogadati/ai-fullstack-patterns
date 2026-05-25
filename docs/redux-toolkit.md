@@ -346,27 +346,29 @@ This is the problem Redux was designed to solve.
 
 ---
 
-## 7. Core concepts: action, reducer, store
+## 7. Stepping into Redux: the framework-agnostic core
+
+From here through Section 16, we leave React behind and focus on Redux itself. Everything in these sections (`createSlice`, `configureStore`, `createAsyncThunk`, `dispatch`, `subscribe`, middleware, debugging) works in any JavaScript environment: a vanilla web app, a Node script, a Vue or Angular project, or a React app. React comes back in Section 17 when we wire the store into a UI.
 
 Here is the full Redux architecture at a glance:
 
 ```mermaid
 flowchart LR
-    Component["React Component"] -->|"useDispatch()"| Action["Action<br/>{type, payload}"]
+    App["Application code<br/>(any JS framework or none)"] -->|"dispatch action"| Action["Action<br/>{type, payload}"]
     Action --> MW["Middleware Pipeline<br/>(thunk, logger, custom)"]
     MW --> Reducer["Reducer<br/>(pure function)<br/>(state, action) =&gt; newState"]
     Reducer -->|"new immutable state"| Store[("Store<br/>single source of truth")]
-    Store -.->|"useSelector()<br/>notify + return slice"| Component
+    Store -.->|"notify subscribers<br/>(store.subscribe)"| App
 
     classDef good fill:#15803d,color:#fff
     classDef redux fill:#7c3aed,color:#fff
     classDef store fill:#2a4d7c,color:#fff
-    class Component good
+    class App good
     class Action,MW,Reducer redux
     class Store store
 ```
 
-A user event in a component dispatches an action. The action flows through any middleware, reaches the reducer, which produces a new immutable state. The store updates. Subscribed components re-render with the new value.
+A user event in your application code dispatches an action. The action flows through any middleware, reaches the reducer, which produces a new immutable state. The store updates. Anything that subscribed to the store (via `store.subscribe`) gets notified.
 
 That is the entire architecture. Everything else (RTK, `createSlice`, `createAsyncThunk`) is convenience built on top.
 
@@ -437,14 +439,14 @@ Why does Redux require this?
 
 - Redux uses **reference equality** (`prevState === nextState`) to decide whether something changed. If you mutate the existing state object, the reference stays the same, and subscribers will not see the update.
 - Keeping previous states intact is what makes **time-travel debugging** possible. DevTools holds onto every prior state snapshot, and that only works because nothing mutates them.
-- Predictable change detection enables fast UI updates. React's `useSelector` can compare references rather than deep-comparing entire objects, which would be slow on a large state tree.
+- Predictable change detection enables fast UI updates. Selectors can compare references with `===` rather than deep-comparing entire objects, which would be slow on a large state tree.
 
 ### The data flow
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant C as Component
+    participant C as Caller
     participant S as Store
     participant R as Reducer
     participant Subs as Subscribers
@@ -452,7 +454,7 @@ sequenceDiagram
     S->>R: (currentState, action)
     R-->>S: nextState
     S->>Subs: notify
-    Subs->>C: re-render with new state
+    Subs->>C: updated state available
 ```
 
 Predictable, unidirectional, and replayable. The replayable property is what makes time-travel debugging possible in DevTools.
@@ -745,7 +747,7 @@ If `createAsyncThunk` produced only a single "completed" action, every reducer a
 | `fetchComments.fulfilled` | Set `state.loading = "idle"`, replace `state.items` with the API response | Hide the loading text, render the list |
 | `fetchComments.rejected` | Set `state.loading = "idle"`, save the error message to `state.error` | Hide the loading text, render an error banner |
 
-The component never imports the action types directly. It just reads `state.comments.loading` and `state.comments.error` (via `useSelector`) and renders accordingly. The three-action design decouples *what happens in the store* from *what the UI shows*.
+The UI never imports the action types directly. It just reads `state.comments.loading` and `state.comments.error` from the store and renders accordingly. The three-action design decouples *what happens in the store* from *what the UI shows*.
 
 **One more benefit: Redux DevTools time-travel.** Because each phase is a distinct action in the log, you can step backward and forward through pending, fulfilled, and rejected to inspect exactly what the state looked like at each moment. With a single combined action you would only see the final outcome, not the loading state in between.
 
@@ -830,8 +832,8 @@ flowchart LR
     M1 --> M2[Thunk MW]
     M2 --> M3[Custom MW]
     M3 --> R[Reducer]
-    R --> S[New State]
-    S --> UI[Components re-render]
+    R --> S[New state]
+    S --> Sub[Subscribers notified]
 
     classDef mw fill:#d97706,color:#fff
     classDef core fill:#2a4d7c,color:#fff
@@ -880,13 +882,13 @@ comments.items[0].likes:
   + 1
 ```
 
-One field changed. Everything else stayed identical. This is the visible proof of immutability and reference equality: when only one slice of state changes, only that slice's subscribers re-render.
+One field changed. Everything else stayed identical. This is the visible proof of immutability and reference equality: when only one slice of state changes, only that slice's subscribers are notified.
 
 ### Time-travel: the architectural payoff
 
 Click any prior action in the log and the UI rewinds to that state. Click forward through actions to step through state changes one by one. This works because every dispatched action produces a new immutable state snapshot, and DevTools keeps all of them in memory.
 
-The **play button** (bottom of the action log) auto-advances through the actions at a fixed interval. At each step, DevTools sets the store's current state to the snapshot it recorded for that action, and the components re-render. It is **replay of state transitions, not re-execution of action handlers**: the reducers already ran, and DevTools has the resulting states cached. Nothing is being recomputed; you are watching the recorded history at playback speed.
+The **play button** (bottom of the action log) auto-advances through the actions at a fixed interval. At each step, DevTools sets the store's current state to the snapshot it recorded for that action, and any subscribed UI updates accordingly. It is **replay of state transitions, not re-execution of action handlers**: the reducers already ran, and DevTools has the resulting states cached. Nothing is being recomputed; you are watching the recorded history at playback speed.
 
 Time-travel is also the proof that the Redux constraints (pure reducers, immutable state, dispatch-only changes) actually function as a system. If reducers had side effects or mutated state, rewinding would not be possible.
 
@@ -1111,17 +1113,22 @@ That is the entire integration. Everything else (`createAsyncThunk`, `extraReduc
 
 ---
 
-## 19. Live demo
+## 19. The reference projects
 
-Switching to the React + Redux Toolkit project to see these five steps running.
+The patterns in this document are implemented in two runnable projects in this repository.
 
-Walking through:
+[**`projects/redux-plain-js/`**](../projects/redux-plain-js/) demonstrates Redux Toolkit in plain JavaScript, with no React in the picture. The script logs every state change to the console as it dispatches actions through `createSlice` reducers, `createAsyncThunk` lifecycle handlers, and a cross-slice `signOut` listener. Useful for understanding the Redux side without any framework noise.
 
-- `src/features/comments/commentsSlice.js` with `createSlice` and `createAsyncThunk` (step 1)
-- `src/store.js` with `configureStore` (step 2)
-- `src/main.jsx` with `<Provider>` (step 3)
-- `src/features/comments/CommentsList.jsx` with `useSelector` and `useDispatch` (steps 4 and 5)
-- Redux DevTools showing the action log live
+[**`projects/react-redux/`**](../projects/react-redux/) wires the same primitives into a React UI. `<Provider>` at the root, `useDispatch` and `useSelector` in the component, `useEffect` to fire `createAsyncThunk` on mount, and full loading/error rendering. Open the Redux DevTools browser extension to watch every action fire and to step backward through state with time-travel.
+
+Both projects use Vite. From either folder:
+
+```bash
+npm install
+npm run dev
+```
+
+Each project has its own `README.md` listing which files to read first and what to look for in the running app.
 
 ---
 
