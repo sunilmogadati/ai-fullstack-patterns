@@ -384,6 +384,22 @@ A plain JavaScript object describing what happened.
 
 `type` is required. `payload` is convention.
 
+### Action types
+
+The `type` field is what identifies the action. It is a string, conventionally formatted as `"sliceName/actionName"`:
+
+- `"comments/addComment"` — the comments slice's addComment action
+- `"users/signIn"` — the users slice's signIn action
+- `"comments/fetchComments/fulfilled"` — the fetchComments thunk's fulfilled phase (Section 14)
+
+Two things to know about action types:
+
+1. The reducer's `switch` statement (in plain Redux) or the key in the `reducers` object (in `createSlice`) is matched against this string. That is how the store knows which reducer code path to run for a given action.
+
+2. With `createSlice`, action types are **auto-generated**. You write `addComment` as a key in the `reducers` object, and RTK generates `"comments/addComment"` as the action's type. You do not declare or import type constants by hand.
+
+The slash-separated convention is not a Redux requirement. Redux just compares strings. But the `slice/action` format makes it easy to scan a DevTools log and see which slice each action belongs to.
+
 ### Reducer
 
 A pure function that takes the current state and an action, and returns the next state.
@@ -524,7 +540,7 @@ We will focus on the three most-used: `configureStore`, `createSlice`, and `crea
 
 ---
 
-## 10. `createSlice`: the centerpiece
+## 10. `createSlice`: building a slice
 
 A **slice** is one feature's piece of the application state, plus the actions that can change it. Each slice usually corresponds to one domain in your app: comments, users, cart, notifications, and so on. A slice owns one top-level key in the store, the reducers that handle changes to that key, and the action types those reducers respond to.
 
@@ -661,7 +677,7 @@ flowchart LR
     class CS,US slice
 ```
 
-This maps cleanly to your folder structure:
+This maps cleanly to a feature-based folder structure:
 
 ```
 src/features/
@@ -673,18 +689,38 @@ src/features/
 
 ## 14. `createAsyncThunk`: async work
 
-Real apps need to fetch data from servers. But Redux's reducers are pure functions: they cannot make API calls, wait for promises, or have any side effects. So async work cannot live inside reducers. It has to live somewhere else in the data flow.
+### Why does API work belong inside Redux at all?
 
-The answer is **middleware**. Middleware intercepts dispatched values before they reach reducers and can do whatever it wants with them: log them, run async work, transform them, dispatch more actions. The standard Redux middleware for async work is **thunk**, and `configureStore` includes it by default.
+A fair question to ask first: why does an API call need to go through Redux? Could the application code just call the API directly and dispatch a single plain action when the data comes back?
 
-`createAsyncThunk` is RTK's helper for the most common thunk pattern: call an API, dispatch one action when the request starts, and another action when it finishes (or fails). But first, the vocabulary.
+```js
+// "Skip Redux for the fetch" approach
+async function loadComments() {
+  const res = await fetch("/api/comments");
+  const data = await res.json();
+  dispatch({ type: "comments/loaded", payload: data });
+}
+```
+
+This works. For very simple cases, it is reasonable. But it has gaps that compound as the app grows:
+
+- **Loading state is not in the store.** While the fetch is in flight, no part of the app knows that "a fetch is happening." If several components need to show loading spinners, each tracks loading state locally.
+- **Error state is not in the store.** If the fetch fails, nothing in the store reflects that. Each caller has to handle errors itself.
+- **The pattern is not standardized.** Some developers will manually dispatch a "loading started" action; others will not. Code reviews drift.
+- **Time-travel debugging captures only the outcome.** Replaying the log shows the final `loaded` action, but the "started" moment is missing.
+
+`createAsyncThunk` solves all of this by **standardizing the lifecycle**. Every async operation is modeled as three phases (start, success, failure), and an action is dispatched for each phase. The store reflects the full lifecycle, not just the outcome.
+
+The right framing: the question is not "should the API call go through Redux." The question is "do you want the *progress* of an async operation reflected in your central state, or only the *result*?" `createAsyncThunk` gives you the progress.
 
 ### What is a thunk?
 
 A **thunk** is a function that wraps deferred work. In Redux, a thunk is dispatched like an action, but instead of being a plain `{type, payload}` object that immediately hits the reducer, it is a function that runs some logic (typically an API call) first and dispatches actions based on the outcome.
 
 The plain Redux flow is: dispatch action → reducer updates state.
-The thunk flow is: dispatch thunk → middleware runs the thunk → thunk dispatches one or more actions → reducers update state.
+The thunk flow is: dispatch thunk → middleware runs the thunk → thunk dispatches one or more **plain action objects** → reducers update state.
+
+The actions the thunk dispatches are ordinary `{type, payload}` data, exactly like a synchronous action. For `createAsyncThunk` specifically, the thunk dispatches `{ type: "comments/fetchComments/pending" }` on entry, then either `{ type: "comments/fetchComments/fulfilled", payload: <api response> }` or `{ type: "comments/fetchComments/rejected", error: <error info> }` when the work completes.
 
 **A thunk is not a pure function.** It calls APIs, generates timestamps, reads from network, does any side effect it needs. This is fine, because the thunk runs in middleware, not in the reducer. What matters is that the actions the thunk *dispatches* are plain `{type, payload}` data objects, and the reducers that handle those actions are still pure. The thunk's impurity is captured inside the action payload (for example, the API response becomes the payload of `fetchComments.fulfilled`). Once captured, the action is just data.
 
@@ -704,7 +740,7 @@ export const fetchComments = createAsyncThunk(
 );
 ```
 
-One call generates three action types automatically.
+One call to `createAsyncThunk` generates three action types automatically.
 
 ```mermaid
 stateDiagram-v2
@@ -729,25 +765,48 @@ stateDiagram-v2
     end note
 ```
 
+### Who calls what, and when
+
+This is the precise sequence when application code dispatches a thunk:
+
+1. **The application code** calls `dispatch(fetchComments())`.
+   - `fetchComments()` is invoked first. It returns a *function*, which is the thunk itself.
+   - `dispatch` is then called with that function as its argument.
+
+2. **The thunk middleware** sees that the dispatched value is a function, not a plain `{type, payload}` object. It intercepts the function before it reaches any reducer.
+
+3. **The middleware calls the function**, passing `dispatch` and `getState` to it. This is where the API call actually runs.
+
+4. **The function dispatches plain action objects** based on the API outcome. With `createAsyncThunk`, this happens automatically:
+   - On entry: `dispatch({ type: "comments/fetchComments/pending" })`
+   - On success: `dispatch({ type: "comments/fetchComments/fulfilled", payload: <api response> })`
+   - On failure: `dispatch({ type: "comments/fetchComments/rejected", error: <error info> })`
+
+5. **Each of those plain actions** flows through the normal Redux pipeline: middleware chain → reducers → store update → subscribers notified. The reducers in question are the ones declared in the slice's `extraReducers` (covered below).
+
+The application code does not call the reducer. The thunk does not call the reducer. Every state change still goes through `dispatch` and the reducer, exactly like for synchronous actions. The thunk is just a way to *defer* the dispatch until the async work resolves.
+
 ### Why three actions, not one?
 
-Each phase of an async operation needs different UI behavior:
+**All three actions update the store.** Pending and rejected are not just "UI things" — they modify the store's `loading` and `error` fields. Those store updates are what *cause* the UI to change. The UI is just rendering whatever the store currently holds.
 
-- `pending`: show a loading spinner or "Loading…" text, disable the submit button, insert a placeholder row.
-- `fulfilled`: hide the spinner, display the data, optionally show a success toast.
-- `rejected`: hide the spinner, show an error message, offer a retry button.
+Each phase needs different state, which is why three actions exist instead of one:
 
-If `createAsyncThunk` produced only a single "completed" action, every reducer and every component would need to inspect the payload to figure out which phase actually happened. With three distinct actions, each phase has its own clean handler in `extraReducers`, and components can read simple `loading` and `error` fields from state without conditional logic.
+- `pending`: marks loading as in-progress, clears any previous error.
+- `fulfilled`: marks loading as done, writes the API response into the data field.
+- `rejected`: marks loading as done, writes the error message into the error field.
 
-**Where each action is used (concretely):**
+If `createAsyncThunk` produced only a single "completed" action, every reducer would need to inspect the payload to figure out which phase actually happened (success vs. failure) and whether the spinner should still show. With three distinct actions, each phase has its own clean handler in `extraReducers`.
 
-| Action | Used in `extraReducers` to... | Used in the UI to... |
+**What each action does (concretely):**
+
+| Action | What `extraReducers` writes to the store | What the UI then renders |
 |---|---|---|
-| `fetchComments.pending` | Set `state.loading = "pending"`, clear `state.error` | Render "Loading initial comments…" |
-| `fetchComments.fulfilled` | Set `state.loading = "idle"`, replace `state.items` with the API response | Hide the loading text, render the list |
-| `fetchComments.rejected` | Set `state.loading = "idle"`, save the error message to `state.error` | Hide the loading text, render an error banner |
+| `fetchComments.pending` | `state.loading = "pending"`, `state.error = null` | "Loading initial comments…" |
+| `fetchComments.fulfilled` | `state.loading = "idle"`, `state.items = action.payload` | The list of comments |
+| `fetchComments.rejected` | `state.loading = "idle"`, `state.error = action.error.message` | An error banner |
 
-The UI never imports the action types directly. It just reads `state.comments.loading` and `state.comments.error` from the store and renders accordingly. The three-action design decouples *what happens in the store* from *what the UI shows*.
+The UI never imports the action types directly. It just reads `state.comments.loading`, `state.comments.error`, and `state.comments.items` from the store and renders accordingly. The three-action design decouples *what happens in the store* from *what the UI shows*.
 
 **One more benefit: Redux DevTools time-travel.** Because each phase is a distinct action in the log, you can step backward and forward through pending, fulfilled, and rejected to inspect exactly what the state looked like at each moment. With a single combined action you would only see the final outcome, not the loading state in between.
 
