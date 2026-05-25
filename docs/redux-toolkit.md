@@ -120,7 +120,7 @@ Data in React **flows down**: a parent passes data to its children through props
 
 But children often need to *cause* changes in state owned by a parent (or grandparent). The pattern is: the parent defines an updater function, passes it down as a prop, and the child calls it. The function runs in the parent (where the state lives), updates the state, and the new state flows back down to whichever children need it.
 
-Extending the Greeting and Hello example makes this concrete. Suppose Hello also wants its own input box so the user can change the name from either component. Hello cannot call `setName` directly — that function lives in Greeting's scope, and Hello has no access to it. The pattern is for Greeting to pass `setName` down to Hello as a prop:
+Extending the Greeting and Hello example makes this concrete. Suppose Hello also wants its own input box so the user can change the name from either component. Hello cannot call `setName` directly - that function lives in Greeting's scope, and Hello has no access to it. The pattern is for Greeting to pass `setName` down to Hello as a prop:
 
 ```jsx
 import { useState } from "react";
@@ -388,23 +388,17 @@ It is worth being explicit about what this pattern eliminates:
 - **No more drilling callbacks down.** A deep component that needs to *update* shared state no longer requires the parent to pass an updater function through every intermediary. The component dispatches directly.
 - **No more round-trips through carriers.** The "callback goes down, function runs in the parent, new state flows back down through the chain" pattern from Section 4 disappears. The update happens in one place (the reducer), and only the subscribers that actually care are notified.
 
-Three properties of the store worth calling out:
-
-- **One store per application.** Not one per page, not one per feature. The entire app shares one store.
-- **The state inside the store is immutable.** Each action produces a new state object. The previous state is not modified, which is what makes time-travel debugging and predictable updates possible.
-- **The store lives in memory only.** It is recreated on every page load. For persistence (e.g., keeping cart contents across reloads), pair Redux with localStorage, IndexedDB, a server-side database, or a library like `redux-persist`.
-
 This is the problem Redux was designed to solve.
 
 ---
 
 ## 7. Stepping into Redux: the framework-agnostic core
 
-From here through Section 16, we leave React behind and focus on Redux itself. Everything in these sections (`createSlice`, `configureStore`, `createAsyncThunk`, `dispatch`, `subscribe`, middleware, debugging) works in any JavaScript environment: a vanilla web app, a Node script, a Vue or Angular project, or a React app. React comes back in Section 17 when we wire the store into a UI.
+From here through Section 15, we leave React behind and focus on Redux itself. Everything in these sections (`createSlice`, `configureStore`, `createAsyncThunk`, `dispatch`, `subscribe`, middleware, debugging) works in any JavaScript environment: a vanilla web app, a Node script, a Vue or Angular project, or a React app. React comes back in Section 16 when we wire the store into a UI.
 
 ### Where this pattern comes from
 
-Redux is not a frontend invention. It is a computer science pattern that backend engineers have been using for decades, ported to UI. The discipline of treating state changes as events, processing them through pure functions, and keeping an append-only log of what happened — that pattern shows up in database transactions, event sourcing systems, and CQRS architectures. Redux takes those architectural ideas and applies them to the browser.
+Redux is not a frontend invention. It is a computer science pattern that backend engineers have been using for decades, ported to UI. The discipline of treating state changes as events, processing them through pure functions, and keeping an append-only log of what happened - that pattern shows up in database transactions, event sourcing systems, and CQRS architectures. Redux takes those architectural ideas and applies them to the browser.
 
 The structural elements you are about to see (action, reducer, store, immutability) are direct echoes of those backend patterns. Section 9 unpacks the full design-pattern genealogy after you have seen the API; for now, just know that this is established computer science, not a quirky frontend invention.
 
@@ -446,9 +440,9 @@ A plain JavaScript object describing what happened.
 
 The `type` field is what identifies the action. It is a string, conventionally formatted as `"sliceName/actionName"`:
 
-- `"comments/addComment"` — the comments slice's addComment action
-- `"users/signIn"` — the users slice's signIn action
-- `"comments/fetchComments/fulfilled"` — the fetchComments thunk's fulfilled phase (Section 14)
+- `"comments/addComment"` - the comments slice's addComment action
+- `"users/signIn"` - the users slice's signIn action
+- `"comments/fetchComments/fulfilled"` - the fetchComments thunk's fulfilled phase (Section 14)
 
 Two things to know about action types:
 
@@ -497,6 +491,12 @@ console.log(store.getState()); // [{ id: 1, text: "Great answer!", likes: 0 }]
 const unsubscribe = store.subscribe(() => console.log(store.getState()));
 ```
 
+Three properties of the store worth calling out:
+
+- **One store per application.** Not one per page, not one per feature. The entire app shares one store.
+- **The state inside the store is immutable.** Each action produces a new state object. The previous state is not modified, which is what makes time-travel debugging and predictable updates possible.
+- **The store lives in memory only.** It is recreated on every page load. For persistence (e.g., keeping cart contents across reloads), pair Redux with localStorage, IndexedDB, a server-side database, or a library like `redux-persist`.
+
 ### Immutability
 
 **The state held by the store is immutable.** Each reducer must produce a new state object rather than mutating the existing one.
@@ -514,6 +514,33 @@ Why does Redux require this?
 - Redux uses **reference equality** (`prevState === nextState`) to decide whether something changed. If you mutate the existing state object, the reference stays the same, and subscribers will not see the update.
 - Keeping previous states intact is what makes **time-travel debugging** possible. DevTools holds onto every prior state snapshot, and that only works because nothing mutates them.
 - Predictable change detection enables fast UI updates. Selectors can compare references with `===` rather than deep-comparing entire objects, which would be slow on a large state tree.
+
+### Middleware
+
+The architecture diagram earlier in this section showed a middleware pipeline between the dispatched action and the reducer. Middleware is a function that runs after dispatch and before the reducer. Used for:
+
+- Logging
+- Error reporting
+- API calls (thunks are middleware)
+- Analytics
+- Auth token injection
+
+```mermaid
+flowchart LR
+    D[dispatch action] --> M1[Logger MW]
+    M1 --> M2[Thunk MW]
+    M2 --> M3[Custom MW]
+    M3 --> R[Reducer]
+    R --> S[New state]
+    S --> Sub[Subscribers notified]
+
+    classDef mw fill:#d97706,color:#fff
+    classDef core fill:#2a4d7c,color:#fff
+    class M1,M2,M3 mw
+    class D,R,S core
+```
+
+`configureStore` adds thunk and dev checks by default. You add custom middleware via `getDefaultMiddleware().concat(yourMiddleware)`.
 
 ### The data flow
 
@@ -606,13 +633,13 @@ Understanding this genealogy explains *why* Redux's API looks the way it does, a
 
 **1. Flux architecture (structural foundation).** Redux is a direct evolution of the Flux architecture introduced by Facebook in 2014. Flux enforced **unidirectional data flow**: events go in one direction through a dispatcher into stores and out to views. Redux simplified Flux by collapsing multiple stores into one centralized state tree and removing the explicit dispatcher object, while keeping the one-way data loop.
 
-**2. CQRS — Command Query Responsibility Segregation.** Borrowed from backend architecture, CQRS separates **writes (commands)** from **reads (queries)** into two distinct pathways. Redux applies this directly: dispatched actions are commands that express intent to modify state and never return data. Selectors (and `useSelector` in React) are queries that extract read-optimized slices for the UI. The two pathways never mix.
+**2. CQRS - Command Query Responsibility Segregation.** Borrowed from backend architecture, CQRS separates **writes (commands)** from **reads (queries)** into two distinct pathways. Redux applies this directly: dispatched actions are commands that express intent to modify state and never return data. Selectors (and `useSelector` in React) are queries that extract read-optimized slices for the UI. The two pathways never mix.
 
 **3. Event sourcing philosophy.** In event-sourced systems, state is not stored as a current snapshot but is *derived* from a sequential, append-only log of events. Redux applies this philosophy: state is treated as read-only and immutable; transitions are driven by an ordered stream of action objects; the current state is the result of processing those events deterministically through pure reducers. This is the property that makes time-travel debugging and audit logging possible.
 
 **4. Observer pattern (publish-subscribe).** The Redux store acts as a central **publisher**. UI components and other consumers register as **observers** (via `store.subscribe`, or via `useSelector` in React-Redux). When a state transition completes, the store notifies all subscribers. Components receive change notifications without needing to know who triggered the change.
 
-**5. Functional programming — pure functions and immutability.** Reducers are required to be pure functions: deterministic, no side effects, no mutation of the input. State is immutable: each transition returns a new state reference rather than modifying the existing one. These properties enable reference-equality change detection, fast selectors, and replayable action streams.
+**5. Functional programming - pure functions and immutability.** Reducers are required to be pure functions: deterministic, no side effects, no mutation of the input. State is immutable: each transition returns a new state reference rather than modifying the existing one. These properties enable reference-equality change detection, fast selectors, and replayable action streams.
 
 **6. Chain of responsibility (the middleware pipeline).** Middleware sits between dispatch and the reducer as a chain of handlers, each of which can inspect, transform, log, delay, or short-circuit an action before passing it down the chain. This is a classic Chain of Responsibility pattern, and it is what makes asynchronous work (thunks), logging, and analytics cleanly composable.
 
@@ -620,7 +647,7 @@ Understanding this genealogy explains *why* Redux's API looks the way it does, a
 
 **7. Proxy pattern (Immer in `createSlice`).** RTK integrates the Immer library inside `createSlice`. When you write code that looks like mutation (`state.items.push(...)`), Immer wraps the state in a JavaScript Proxy that intercepts the operations, tracks the attempted mutations, and produces a new immutable copy under the hood. The Proxy pattern is what bridges familiar mutable-style JavaScript with the immutability constraint Redux requires.
 
-**8. Slice pattern (`createSlice` co-location).** Classic Redux fragments a single feature across three or four files: action type constants, action creators, reducers, and store wiring. RTK's `createSlice` co-locates the slice's name, initial state, and reducers into a single block, and **auto-generates the action types and action creators** from the reducer keys. This is a structural pattern — locality of related concerns — that eliminates the most common Redux boilerplate complaint.
+**8. Slice pattern (`createSlice` co-location).** Classic Redux fragments a single feature across three or four files: action type constants, action creators, reducers, and store wiring. RTK's `createSlice` co-locates the slice's name, initial state, and reducers into a single block, and **auto-generates the action types and action creators** from the reducer keys. This is a structural pattern - locality of related concerns - that eliminates the most common Redux boilerplate complaint.
 
 **9. Facade pattern (`configureStore`).** Classic Redux store setup requires manual composition of `createStore`, `combineReducers`, middleware enhancers, and DevTools integration. RTK's `configureStore` is a **facade**: a single high-level interface that hides this assembly. It automatically combines reducers, includes the thunk middleware, wires the Redux DevTools extension, and turns on dev-mode mutation/serializability checks. One function call replaces several lines of boilerplate.
 
@@ -884,7 +911,7 @@ The application code does not call the reducer. The thunk does not call the redu
 
 ### Why three actions, not one?
 
-**All three actions update the store.** Pending and rejected are not just "UI things" — they modify the store's `loading` and `error` fields. Those store updates are what *cause* the UI to change. The UI is just rendering whatever the store currently holds.
+**All three actions update the store.** Pending and rejected are not just "UI things" - they modify the store's `loading` and `error` fields. Those store updates are what *cause* the UI to change. The UI is just rendering whatever the store currently holds.
 
 Each phase needs different state, which is why three actions exist instead of one:
 
@@ -971,36 +998,7 @@ This works because of the routing rule from Section 12: when an action is dispat
 
 ---
 
-## 15. Middleware, briefly
-
-Middleware is a function that runs after dispatch and before the reducer. Used for:
-
-- Logging
-- Error reporting
-- API calls (thunks are middleware)
-- Analytics
-- Auth token injection
-
-```mermaid
-flowchart LR
-    D[dispatch action] --> M1[Logger MW]
-    M1 --> M2[Thunk MW]
-    M2 --> M3[Custom MW]
-    M3 --> R[Reducer]
-    R --> S[New state]
-    S --> Sub[Subscribers notified]
-
-    classDef mw fill:#d97706,color:#fff
-    classDef core fill:#2a4d7c,color:#fff
-    class M1,M2,M3 mw
-    class D,R,S core
-```
-
-`configureStore` adds thunk and dev checks by default. You add custom middleware via `getDefaultMiddleware().concat(yourMiddleware)`.
-
----
-
-## 16. Debugging with Redux DevTools
+## 15. Debugging with Redux DevTools
 
 A browser extension (Chrome, Firefox, Edge) that gives you:
 
@@ -1051,7 +1049,7 @@ Time-travel is also the proof that the Redux constraints (pure reducers, immutab
 
 The time-travel UI you see in the browser extension is a **development-only** experience. `configureStore` automatically strips the Redux DevTools integration from production builds, so end users never get this interface, and the action history is not retained in memory in production.
 
-But the *architectural property* that enables time-travel — every state change being a dispatched, serializable, replayable action — is permanent. It works the same way in production as in development. That property is what production audit and replay tools exploit.
+But the *architectural property* that enables time-travel - every state change being a dispatched, serializable, replayable action - is permanent. It works the same way in production as in development. That property is what production audit and replay tools exploit.
 
 A small middleware can log every dispatched action to a backend:
 
@@ -1097,7 +1095,21 @@ That separation is exactly why Redux can offer time-travel even in apps that hit
 
 ---
 
-## 17. React integration: hooks and async work
+## 16. React integration: hooks and async work
+
+### The five-step setup
+
+Putting everything together, the modern RTK + React pattern is five steps in this exact order:
+
+1. **`createSlice`**: define the slice (name, initial state, reducers). Auto-generates action types and action creators.
+2. **`configureStore`**: bundle slices into the store. Wires devtools, thunk middleware, and dev-mode checks automatically.
+3. **`<Provider store={store}>`**: wrap your app at the root. Makes the store available to every component below.
+4. **`useSelector`**: read from the store. Subscribes the component to a slice and re-renders when that slice changes.
+5. **`useDispatch`**: fire actions. Returns the dispatch function, which you call with the action creators from your slice.
+
+That is the entire integration. Everything else (`createAsyncThunk`, `extraReducers`, middleware) plugs into these five steps without changing the pattern. The rest of this section unpacks each step.
+
+### Provider, useSelector, useDispatch
 
 The `react-redux` library provides two hooks for functional components.
 
@@ -1151,7 +1163,7 @@ What each piece does:
   | `useState` | a value local to this component | the setter being called |
   | `useSelector` | a slice of the Redux store | that slice changing (by reference) |
 
-  A component reading `loading` and `error` from the store needs only `useSelector` for that data — not `useState`. It may *also* use `useState` for purely local UI state (a draft input value, whether a modal is open), but that is separate state, not Redux state.
+  A component reading `loading` and `error` from the store needs only `useSelector` for that data - not `useState`. It may *also* use `useState` for purely local UI state (a draft input value, whether a modal is open), but that is separate state, not Redux state.
 - **`useDispatch()`** returns the store's `dispatch` function. This is the only way to trigger a state change from a component: you never call reducers yourself. You call `dispatch` with an action creator from your slice (like `addComment({ text: "..." })`) or a raw action object, and it fires the action through middleware to the reducer.
 
 Two hooks. That is the entire React integration in 2026.
@@ -1294,21 +1306,7 @@ This is a production gotcha. Easy to write, easy to ship, hard to debug when you
 
 ---
 
-## 18. The five-step setup
-
-Putting everything together, the modern RTK + React pattern is five steps in this exact order:
-
-1. **`createSlice`**: define the slice (name, initial state, reducers). Auto-generates action types and action creators.
-2. **`configureStore`**: bundle slices into the store. Wires devtools, thunk middleware, and dev-mode checks automatically.
-3. **`<Provider store={store}>`**: wrap your app at the root. Makes the store available to every component below.
-4. **`useSelector`**: read from the store. Subscribes the component to a slice and re-renders when that slice changes.
-5. **`useDispatch`**: fire actions. Returns the dispatch function, which you call with the action creators from your slice.
-
-That is the entire integration. Everything else (`createAsyncThunk`, `extraReducers`, middleware) plugs into these five steps without changing the pattern.
-
----
-
-## 19. The reference projects
+## 17. The reference projects
 
 The patterns in this document are implemented in two runnable projects in this repository.
 
@@ -1327,7 +1325,7 @@ Each project has its own `README.md` listing which files to read first and what 
 
 ---
 
-## 20. Where Redux fits in 2026
+## 18. Where Redux fits in 2026
 
 Modern React in 2026 has more tools. Server Components (the Next.js App Router model) handle a lot of what used to require Redux for server data. RTK Query is RTK's data-fetching companion if most of your state is server data.
 
@@ -1348,17 +1346,4 @@ Reach for Redux when state is shared across many distant components, when you ne
 
 Skip Redux when a `useState` would do, when the data lives on the server (use Server Components or a query library), or when React Context handles your scope cleanly.
 
----
-
-## 21. Wrap-up
-
-We covered:
-
-- Why Redux exists, to escape prop drilling and re-render cascades in large component trees
-- Core concepts: store (one per app, immutable state), actions, reducers
-- Redux Toolkit: `configureStore`, `createSlice`, `createAsyncThunk` collapse the boilerplate
-- Immer: RTK converts your mutable-looking code into immutable state updates under the hood
-- React integration: `useDispatch` and `useSelector`, two hooks
-- Where Redux fits in 2026: client state foundation, with Server Components and query libraries handling server data
-
-Thank you.
+Redux is what happens when frontend admits it's building distributed systems. It trades upfront discipline for downstream predictability. For the right kind of state, that trade is exactly right.
