@@ -30,6 +30,8 @@ ai-fullstack-patterns/
 
 ## How to run any project
 
+**Prerequisites:** Node.js 22 or later. The repo includes an `.nvmrc` file - if you use [nvm](https://github.com/nvm-sh/nvm), running `nvm use` in the repo root will switch to the recommended version automatically.
+
 ```bash
 cd projects/<project-name>
 npm install

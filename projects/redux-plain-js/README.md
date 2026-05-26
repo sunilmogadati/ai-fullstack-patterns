@@ -20,6 +20,8 @@ redux-plain-js/
 
 ## Run it
 
+Requires Node.js 22 or later. From the repo root, `nvm use` will pick the version from `.nvmrc`.
+
 ```bash
 npm install
 npm run dev
