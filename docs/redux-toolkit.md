@@ -928,6 +928,39 @@ This is the point most worth being precise about. `createAsyncThunk` is generati
 
 The mental model: **`createAsyncThunk` produces the events. You handle them.** The events are generated; the handlers are authored.
 
+### How you reference the generated action creators
+
+A natural next question: if RTK generates the three actions, how do you know what to write in `extraReducers`? The answer is that you don't write the string names. RTK attaches the three action creators directly to the thunk function it returns, as properties:
+
+```js
+export const fetchComments = createAsyncThunk(
+  "comments/fetchComments",  // type prefix you provide
+  async () => { ... }
+);
+
+// RTK automatically attaches these to fetchComments:
+fetchComments.pending     // an action creator function
+fetchComments.fulfilled   // an action creator function
+fetchComments.rejected    // an action creator function
+```
+
+In `extraReducers`, you pass the action creator reference (not a string) to `addCase`:
+
+```js
+extraReducers: (builder) => {
+  builder
+    .addCase(fetchComments.pending, (state) => { ... })
+    .addCase(fetchComments.fulfilled, (state, action) => { ... })
+    .addCase(fetchComments.rejected, (state, action) => { ... });
+}
+```
+
+You import `fetchComments` from your slice file. Your editor's autocomplete handles the `.pending` / `.fulfilled` / `.rejected` suffixes. You never type the full string `"comments/fetchComments/pending"` anywhere.
+
+Each generated action creator has its own `.type` property baked in (`fetchComments.pending.type` returns `"comments/fetchComments/pending"`). When you write `addCase(fetchComments.pending, handler)`, RTK reads that `.type` internally to know which dispatched action the handler should match. The framework handles the string matching for you.
+
+The naming convention is fixed by RTK: `prefix + "/pending"`, `prefix + "/fulfilled"`, `prefix + "/rejected"`. So once you know the type prefix you passed to `createAsyncThunk`, you know exactly what the three actions will be - but you reference them by importing and using the action creators, not by writing strings.
+
 The application code does not call the reducer. The thunk does not call the reducer. Every state change still goes through `dispatch` and the reducer, exactly like for synchronous actions. The thunk is just a way to *defer* the dispatch until the async work resolves.
 
 ### Why three actions, not one?
