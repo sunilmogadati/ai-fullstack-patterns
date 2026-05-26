@@ -1063,7 +1063,21 @@ This works because of the routing rule from Section 12: when an action is dispat
 
 To restate the framing from the top of this section: **RTK Query has replaced `createAsyncThunk` as the default tool for CRUD-style data fetching in the Redux ecosystem.** It handles caching, refetching, deduplication, and loading/error state automatically. Per-resource code drops by roughly an order of magnitude.
 
-`createAsyncThunk` is now reserved for cases RTK Query is not designed for: multi-step orchestration, complex side effects, cross-slice coordination, and any case where you want precise control over the action lifecycle. The Redux team's official recommendation is to reach for RTK Query first; `createAsyncThunk` is the escape hatch. Section 18 covers the decision in more detail.
+`createAsyncThunk` is now reserved for cases RTK Query is not designed for: multi-step orchestration, complex side effects, cross-slice coordination, and any case where you want precise control over the action lifecycle. The Redux team's official recommendation is to reach for RTK Query first; `createAsyncThunk` is the escape hatch.
+
+### Concrete examples of non-CRUD async work
+
+Four real-world cases where `createAsyncThunk` is the right tool and RTK Query is not:
+
+**1. User logout.** One user event ("click Logout") triggers seven coordinated effects across multiple slices: clear the users slice, clear the cart, invalidate cached server data, revoke the auth token via API, clear browser storage, show a notification, navigate to the home page. RTK Query is per-endpoint; this is per-event with cross-slice consequences. `createAsyncThunk` lets you orchestrate all of it from a single thunk.
+
+**2. Multi-step checkout flow.** Validate cart → reserve inventory → charge payment → confirm order → send confirmation email. Each step depends on the previous one, can fail differently, and the workflow's own progress is state the UI needs to show. The thunk dispatches granular actions as it progresses (`checkout/inventoryValidated`, `checkout/itemsReserved`, `checkout/paymentProcessed`), so the store can render a multi-step progress indicator and roll back cleanly if any step fails. RTK Query models request-response, not orchestrated workflows.
+
+**3. Cancellable file upload with progress.** The lifecycle has more than three phases: started, progress (dispatched repeatedly with percentage), paused, resumed, cancelled, completed, failed. This does not fit the pending/fulfilled/rejected lifecycle that RTK Query auto-generates. `createAsyncThunk` lets you dispatch arbitrary actions from inside the async function, so the upload code can stream progress events to the store and handle cancellation cleanly.
+
+**4. Non-HTTP async work.** RTK Query is built around HTTP request-response. It does not model WebSocket message handling (where the server pushes messages, not responses), `navigator.geolocation.getCurrentPosition()` and other device APIs, IndexedDB or file system reads, or Web Worker coordination. For any of these, the data source is not an API endpoint at all. `createAsyncThunk` works because it just runs JavaScript - it does not assume HTTP semantics.
+
+In all four cases, the standard tool does not fit. For everything else (load a list, fetch one item, create/update/delete a record), reach for RTK Query. Section 18 covers the broader decision tree.
 
 ---
 
