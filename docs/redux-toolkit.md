@@ -567,6 +567,29 @@ sequenceDiagram
 
 Predictable, unidirectional, and replayable. The replayable property is what makes time-travel debugging possible in DevTools.
 
+### The design patterns this architecture implements
+
+The components and flow you just saw (action, reducer, store, immutability, middleware) are not novel inventions. They are an application of well-established CS patterns to the problem of UI state coordination. Recognizing the patterns by name explains why Redux looks the way it does and what to expect from the architecture.
+
+**1. Flux architecture (structural foundation).** Redux is a direct evolution of the Flux architecture introduced by Facebook in 2014. Flux enforced **unidirectional data flow**: events go in one direction through a dispatcher into stores and out to views. Redux simplified Flux by collapsing multiple stores into one centralized state tree and removing the explicit dispatcher object, while keeping the one-way data loop.
+
+**2. CQRS - Command Query Responsibility Segregation.** A pattern from software architecture for separating **writes (commands)** from **reads (queries)** into two distinct pathways. Redux applies this directly: dispatched actions are commands that express intent to modify state and never return data. Selectors (and `useSelector` in React) are queries that extract read-optimized slices for the UI. The two pathways never mix.
+
+**3. Event sourcing philosophy.** In event-sourced systems, state is not stored as a current snapshot but is *derived* from a sequential, append-only log of events. Redux applies this philosophy: state is treated as read-only and immutable; transitions are driven by an ordered stream of action objects; the current state is the result of processing those events deterministically through pure reducers. This is the property that makes time-travel debugging and audit logging possible.
+
+**4. Observer pattern (publish-subscribe).** The Redux store acts as a central **publisher**. UI components and other consumers register as **observers** (via `store.subscribe`, or via `useSelector` in React-Redux). When a state transition completes, the store notifies all subscribers. Components receive change notifications without needing to know who triggered the change.
+
+**5. Functional programming - pure functions and immutability.** Reducers are required to be pure functions: deterministic, no side effects, no mutation of the input. State is immutable: each transition returns a new state reference rather than modifying the existing one. These properties enable reference-equality change detection, fast selectors, and replayable action streams.
+
+**6. Chain of responsibility (the middleware pipeline).** Middleware sits between dispatch and the reducer as a chain of handlers, each of which can inspect, transform, log, delay, or short-circuit an action before passing it down the chain. This is a classic Chain of Responsibility pattern, and it is what makes asynchronous work (thunks), logging, and analytics cleanly composable.
+
+Recognizing these patterns by name matters for two reasons:
+
+- The discipline Redux requires (immutability, pure functions, unidirectional flow) is the *same* discipline that scales complex systems in any domain. It is not arbitrary.
+- The features senior engineers value most (time-travel debugging, action audit logs, predictable updates, middleware composition) fall out of these patterns automatically. They are architectural payoffs, not features that had to be built.
+
+When you read Redux code, you are reading an implementation of these patterns. Recognizing them lets you reason about the code at the level of intent, not just syntax.
+
 ---
 
 ## 8. Redux without RTK: the boilerplate
@@ -630,43 +653,17 @@ flowchart TB
 
 We will focus on the three most-used: `configureStore`, `createSlice`, and `createAsyncThunk`.
 
-### The design patterns behind Redux and RTK
+### The design patterns RTK adds on top
 
-Redux does not rest on a single invention. It is a synthesis of well-established CS patterns that have existed in software architecture for decades. RTK then adds a second layer of design patterns on top of Redux to remove the boilerplate without changing the architecture.
+Vanilla Redux already implements the six architectural patterns covered in Section 7 (Flux, CQRS, event sourcing, observer, functional programming, chain of responsibility). RTK does not change that architecture. What RTK adds is a second layer of design patterns aimed at removing the boilerplate of writing Redux by hand.
 
-Understanding this genealogy explains *why* Redux's API looks the way it does, and why senior engineers familiar with these patterns tend to find it natural rather than arbitrary.
+**1. Proxy pattern (Immer in `createSlice`).** RTK integrates the Immer library inside `createSlice`. When you write code that looks like mutation (`state.items.push(...)`), Immer wraps the state in a JavaScript Proxy that intercepts the operations, tracks the attempted mutations, and produces a new immutable copy under the hood. The Proxy pattern is what bridges familiar mutable-style JavaScript with the immutability constraint Redux requires.
 
-#### Patterns Redux inherits from computer science
+**2. Slice pattern (`createSlice` co-location).** Classic Redux fragments a single feature across three or four files: action type constants, action creators, reducers, and store wiring. RTK's `createSlice` co-locates the slice's name, initial state, and reducers into a single block, and **auto-generates the action types and action creators** from the reducer keys. This is a structural pattern - locality of related concerns - that eliminates the most common Redux boilerplate complaint.
 
-**1. Flux architecture (structural foundation).** Redux is a direct evolution of the Flux architecture introduced by Facebook in 2014. Flux enforced **unidirectional data flow**: events go in one direction through a dispatcher into stores and out to views. Redux simplified Flux by collapsing multiple stores into one centralized state tree and removing the explicit dispatcher object, while keeping the one-way data loop.
+**3. Facade pattern (`configureStore`).** Classic Redux store setup requires manual composition of `createStore`, `combineReducers`, middleware enhancers, and DevTools integration. RTK's `configureStore` is a **facade**: a single high-level interface that hides this assembly. It automatically combines reducers, includes the thunk middleware, wires the Redux DevTools extension, and turns on dev-mode mutation/serializability checks. One function call replaces several lines of boilerplate.
 
-**2. CQRS - Command Query Responsibility Segregation.** A pattern from software architecture for separating **writes (commands)** from **reads (queries)** into two distinct pathways. Redux applies this directly: dispatched actions are commands that express intent to modify state and never return data. Selectors (and `useSelector` in React) are queries that extract read-optimized slices for the UI. The two pathways never mix.
-
-**3. Event sourcing philosophy.** In event-sourced systems, state is not stored as a current snapshot but is *derived* from a sequential, append-only log of events. Redux applies this philosophy: state is treated as read-only and immutable; transitions are driven by an ordered stream of action objects; the current state is the result of processing those events deterministically through pure reducers. This is the property that makes time-travel debugging and audit logging possible.
-
-**4. Observer pattern (publish-subscribe).** The Redux store acts as a central **publisher**. UI components and other consumers register as **observers** (via `store.subscribe`, or via `useSelector` in React-Redux). When a state transition completes, the store notifies all subscribers. Components receive change notifications without needing to know who triggered the change.
-
-**5. Functional programming - pure functions and immutability.** Reducers are required to be pure functions: deterministic, no side effects, no mutation of the input. State is immutable: each transition returns a new state reference rather than modifying the existing one. These properties enable reference-equality change detection, fast selectors, and replayable action streams.
-
-**6. Chain of responsibility (the middleware pipeline).** Middleware sits between dispatch and the reducer as a chain of handlers, each of which can inspect, transform, log, delay, or short-circuit an action before passing it down the chain. This is a classic Chain of Responsibility pattern, and it is what makes asynchronous work (thunks), logging, and analytics cleanly composable.
-
-#### Patterns RTK adds on top of Redux
-
-**7. Proxy pattern (Immer in `createSlice`).** RTK integrates the Immer library inside `createSlice`. When you write code that looks like mutation (`state.items.push(...)`), Immer wraps the state in a JavaScript Proxy that intercepts the operations, tracks the attempted mutations, and produces a new immutable copy under the hood. The Proxy pattern is what bridges familiar mutable-style JavaScript with the immutability constraint Redux requires.
-
-**8. Slice pattern (`createSlice` co-location).** Classic Redux fragments a single feature across three or four files: action type constants, action creators, reducers, and store wiring. RTK's `createSlice` co-locates the slice's name, initial state, and reducers into a single block, and **auto-generates the action types and action creators** from the reducer keys. This is a structural pattern - locality of related concerns - that eliminates the most common Redux boilerplate complaint.
-
-**9. Facade pattern (`configureStore`).** Classic Redux store setup requires manual composition of `createStore`, `combineReducers`, middleware enhancers, and DevTools integration. RTK's `configureStore` is a **facade**: a single high-level interface that hides this assembly. It automatically combines reducers, includes the thunk middleware, wires the Redux DevTools extension, and turns on dev-mode mutation/serializability checks. One function call replaces several lines of boilerplate.
-
-#### Why this matters
-
-For an engineer learning Redux, knowing these patterns by name is more than trivia. It tells you that:
-
-- The discipline Redux requires (immutability, pure functions, unidirectional flow) is the *same* discipline that scales complex systems in any domain. It is not arbitrary.
-- The friction of vanilla Redux (constants, action creators, switch statements) was a code-organization problem that RTK solved with well-known structural patterns, not by abandoning the architecture.
-- The features senior engineers value most (time-travel debugging, action audit logs, predictable updates, middleware composition) fall out of these patterns automatically. They are architectural payoffs, not features that had to be built.
-
-When you read someone else's Redux code, you are reading an implementation of these patterns. Recognizing them lets you reason about the code at the level of intent, not just syntax.
+The friction of vanilla Redux (constants, action creators, switch statements, store wiring) was a code-organization problem that RTK solved with three well-known structural patterns, not by abandoning the architecture. Recognizing these RTK patterns lets you read `createSlice` / `configureStore` / Immer code at the level of intent rather than syntax.
 
 ---
 
