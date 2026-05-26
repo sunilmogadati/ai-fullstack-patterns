@@ -816,6 +816,18 @@ src/features/
 
 ## 14. `createAsyncThunk`: async work
 
+### A note before you dive in: createAsyncThunk vs. RTK Query
+
+In 2026, **most CRUD-style data fetching uses RTK Query, not `createAsyncThunk`.** RTK Query is part of Redux Toolkit (same `@reduxjs/toolkit` package) and is now the **officially recommended default** for data fetching in the Redux ecosystem. The Redux team's own documentation positions RTK Query as the standard tool for this work.
+
+This section still covers `createAsyncThunk` in depth, for three reasons:
+
+1. **The patterns are foundational.** RTK Query is built on the same lifecycle (`pending`/`fulfilled`/`rejected`) covered here. Understanding `createAsyncThunk` makes RTK Query's behavior intuitive.
+2. **`createAsyncThunk` is still the right tool** for non-CRUD async work: multi-step orchestration, complex side effects, cross-slice coordination, and any case where you need precise control over the action lifecycle.
+3. **You will encounter `createAsyncThunk` in existing Redux codebases.** Reading and maintaining that code requires understanding it.
+
+If you only need CRUD with the official defaults, you can skim this section and jump to Section 18 for RTK Query. If you want the architectural foundation, read on.
+
 ### Why does API work belong inside Redux at all?
 
 A fair question to ask first: why does an API call need to go through Redux? Could the application code just call the API directly and dispatch a single plain action when the data comes back?
@@ -1047,11 +1059,11 @@ This works because of the routing rule from Section 12: when an action is dispat
 
 `createAsyncThunk` itself has no React dependency. It works in plain JavaScript apps too.
 
-### A note on RTK Query
+### Recap on createAsyncThunk vs. RTK Query
 
-For most CRUD-style data fetching in 2026 (load a list, get one item, create/update/delete), **RTK Query** is usually the better choice. RTK Query is part of Redux Toolkit (same `@reduxjs/toolkit` package) and is specifically designed to replace the `createAsyncThunk + extraReducers` boilerplate for typical API work. It handles caching, refetching, deduplication, and loading/error state automatically, and reduces per-resource code by roughly an order of magnitude.
+To restate the framing from the top of this section: **RTK Query has replaced `createAsyncThunk` as the default tool for CRUD-style data fetching in the Redux ecosystem.** It handles caching, refetching, deduplication, and loading/error state automatically. Per-resource code drops by roughly an order of magnitude.
 
-`createAsyncThunk` remains the right tool for non-CRUD async work: multi-step orchestration, complex side effects, cross-slice coordination, and cases where you want precise control over the action lifecycle. Section 18 covers when to reach for which.
+`createAsyncThunk` is now reserved for cases RTK Query is not designed for: multi-step orchestration, complex side effects, cross-slice coordination, and any case where you want precise control over the action lifecycle. The Redux team's official recommendation is to reach for RTK Query first; `createAsyncThunk` is the escape hatch. Section 18 covers the decision in more detail.
 
 ---
 
@@ -1478,9 +1490,9 @@ export const commentsApi = createApi({
 
 And RTK Query auto-generates React hooks from it: `useGetCommentsQuery()`, `useAddCommentMutation()`. The hooks include loading state, error state, automatic caching, deduplication of concurrent requests, configurable refetching policies, optimistic updates, and TypeScript types inferred from the endpoint definitions.
 
-Compared to `createAsyncThunk + extraReducers`, RTK Query collapses 50-100 lines of per-resource code into about 10. For typical CRUD-style API work in 2026, RTK Query is usually the right choice within the Redux ecosystem.
+Compared to `createAsyncThunk + extraReducers`, RTK Query collapses 50-100 lines of per-resource code into about 10. **For typical CRUD-style API work in 2026, RTK Query has replaced `createAsyncThunk` as the default choice in the Redux ecosystem.** The Redux team's own documentation explicitly recommends RTK Query as the standard tool for data fetching.
 
-`createAsyncThunk` remains useful for the cases RTK Query is not designed for: multi-step orchestration, complex side effects, cross-slice coordination, and any case where you need precise control over the action lifecycle.
+`createAsyncThunk` is now reserved for the cases RTK Query is not designed for: multi-step orchestration, complex side effects, cross-slice coordination, and any case where you need precise control over the action lifecycle. Think of `createAsyncThunk` as the escape hatch when the standard tool does not fit, not as the default starting point.
 
 ### The decision tree
 
