@@ -1047,6 +1047,12 @@ This works because of the routing rule from Section 12: when an action is dispat
 
 `createAsyncThunk` itself has no React dependency. It works in plain JavaScript apps too.
 
+### A note on RTK Query
+
+For most CRUD-style data fetching in 2026 (load a list, get one item, create/update/delete), **RTK Query** is usually the better choice. RTK Query is part of Redux Toolkit (same `@reduxjs/toolkit` package) and is specifically designed to replace the `createAsyncThunk + extraReducers` boilerplate for typical API work. It handles caching, refetching, deduplication, and loading/error state automatically, and reduces per-resource code by roughly an order of magnitude.
+
+`createAsyncThunk` remains the right tool for non-CRUD async work: multi-step orchestration, complex side effects, cross-slice coordination, and cases where you want precise control over the action lifecycle. Section 18 covers when to reach for which.
+
 ---
 
 ## 15. Debugging with Redux DevTools
@@ -1391,23 +1397,98 @@ Each project has its own `README.md` listing which files to read first and what 
 
 ## 18. Where Redux fits in 2026
 
-Modern React in 2026 has more tools. Server Components (the Next.js App Router model) handle a lot of what used to require Redux for server data. RTK Query is RTK's data-fetching companion if most of your state is server data.
+Redux's role has narrowed. The architectural problem it solves (coordinating shared state across distant parts of a UI) has not gone away. But the modern React ecosystem has split that problem into more specialized pieces, and each piece now has a better tool than "use Redux for everything."
+
+### What of Redux is still needed
+
+Redux remains the cleanest answer when state is genuinely **client-side** and **shared across distant components**. The cases where Redux is still the right choice:
+
+- **Complex client workflows** with multiple interacting pieces of state: multi-step forms, undo/redo, drag-and-drop coordination, in-browser editors.
+- **Optimistic UI with rollback**: shopping carts, social interactions (likes, follows), collaborative editing where the client commits a change before the server confirms.
+- **Cross-component coordination of true client state**: feature flag overrides, theme/UI preferences, modal stacks, dismissible notifications, in-session-only data.
+- **Apps where time-travel debugging genuinely pays off**: complex enough that reproducing bug states by replaying user actions earns back the upfront discipline.
+
+The architectural payoffs of Redux (immutable transitions, single source of truth, replayable action log, predictable mutation) have not aged. The cases above still need exactly that.
+
+### What of Redux is not needed (and where the replacements are)
+
+Several categories of state that were once Redux-shaped are now better handled elsewhere:
+
+| Category | Replacement |
+|---|---|
+| Server data (API responses, lists, records, user objects) | **RTK Query** (built into Redux Toolkit) or **TanStack Query** |
+| Server-rendered initial state (data the server already has) | **React Server Components** (Next.js App Router) |
+| Local UI state (form inputs, modal open/closed, hover, dropdown state) | **`useState` / `useReducer`** |
+| Form state (validation, dirty tracking, submission) | **React Hook Form** or similar |
+
+The categorical mistake of "Redux for everything" has been corrected. Each kind of state now has a more specialized tool.
+
+### What Server Components specifically disrupt
+
+Server Components replace one specific Redux pattern: **fetching, caching, and rendering server data on the client**. The classic Redux pattern was:
+
+1. Component mounts.
+2. `dispatch(createAsyncThunkAction())`.
+3. Store reflects `loading: "pending"`. UI shows spinner.
+4. API responds. `fulfilled` action updates the store.
+5. Component re-renders with the data.
+
+Server Components collapse all of that to: **the data is already there when the component renders, on the server.** No `createAsyncThunk`. No loading state in the store. No cache hydration. The page renders with the data inlined.
+
+That eliminates a large category of Redux's historical usage.
+
+What Server Components do **not** disrupt:
+
+- Interactive client state (modals, drag-and-drop, form inputs while typing)
+- State that exists only in the browser session and never round-trips to the server
+- Coordination of multiple client interactions that share state
+- Optimistic updates and rollback flows
+
+So Server Components shrink Redux's footprint substantially - they take over the entire "fetch and display server data" category - but they don't touch the core client-state-coordination problem that Redux was originally designed to solve.
+
+### RTK Query: the data-fetching companion built into RTK
+
+RTK Query is **part of Redux Toolkit** - in the same `@reduxjs/toolkit` package. It is RTK's answer to "what should replace `createAsyncThunk` for most data fetching?"
+
+You define an endpoint:
+
+```js
+import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+
+export const commentsApi = createApi({
+  reducerPath: "commentsApi",
+  baseQuery: fetchBaseQuery({ baseUrl: "/api/" }),
+  endpoints: (builder) => ({
+    getComments: builder.query({ query: () => "comments" }),
+    addComment: builder.mutation({
+      query: (body) => ({ url: "comments", method: "POST", body }),
+    }),
+  }),
+});
+```
+
+And RTK Query auto-generates React hooks from it: `useGetCommentsQuery()`, `useAddCommentMutation()`. The hooks include loading state, error state, automatic caching, deduplication of concurrent requests, configurable refetching policies, optimistic updates, and TypeScript types inferred from the endpoint definitions.
+
+Compared to `createAsyncThunk + extraReducers`, RTK Query collapses 50-100 lines of per-resource code into about 10. For typical CRUD-style API work in 2026, RTK Query is usually the right choice within the Redux ecosystem.
+
+`createAsyncThunk` remains useful for the cases RTK Query is not designed for: multi-step orchestration, complex side effects, cross-slice coordination, and any case where you need precise control over the action lifecycle.
+
+### The decision tree
 
 ```mermaid
 flowchart TD
     Q1{"What kind of state?"}
-    Q1 -->|"Local UI state<br/>(form input, modal open)"| Local["useState / useReducer"]
-    Q1 -->|"Server data<br/>(fetched from API)"| Server["Server Components<br/>or RTK Query<br/>or TanStack Query"]
-    Q1 -->|"True client state<br/>(shared, app-wide,<br/>complex workflows)"| Redux["Redux Toolkit"]
+    Q1 -->|"Local UI state<br/>(form input, modal open, hover)"| Local["useState / useReducer"]
+    Q1 -->|"Server data<br/>(API responses, cached lists)"| Server["RTK Query<br/>or TanStack Query<br/>or React Server Components"]
+    Q1 -->|"Form state<br/>(validation, dirty tracking)"| Form["React Hook Form<br/>or similar"]
+    Q1 -->|"True shared client state<br/>(complex workflows, undo,<br/>optimistic UI, cross-component)"| Redux["Redux Toolkit"]
 
     classDef good fill:#15803d,color:#fff
-    class Local,Server,Redux good
+    class Local,Server,Form,Redux good
 ```
 
 A quick note on `useReducer`. It is a React built-in hook (alongside `useState`) for local component state. It works like a miniature Redux pattern scoped to a single component: you provide a reducer function and an initial state, and it returns `[state, dispatch]`. Reach for it when local state involves several related fields or complex transitions that a single `useState` would make awkward. It is still local; Redux is what you use when the state needs to be shared across components.
 
-Reach for Redux when state is shared across many distant components, when you need time-travel debugging or replay, or when you are modeling complex client workflows like multi-step forms or undo/redo.
+### The closing judgment
 
-Skip Redux when a `useState` would do, when the data lives on the server (use Server Components or a query library), or when React Context handles your scope cleanly.
-
-Redux is the architectural answer to coordinating state at scale. It applies the same discipline that complex systems require everywhere - immutable transitions, single source of truth, replayable history - and trades a small amount of upfront ceremony for substantial downstream predictability. For the right kind of state, that trade is exactly right.
+Redux is the architectural answer to coordinating client state at scale. It applies the same discipline that complex systems require everywhere - immutable transitions, single source of truth, replayable history - and trades a small amount of upfront ceremony for substantial downstream predictability. The scope has narrowed since 2017: Server Components took over server data display, RTK Query took over CRUD data fetching, React Hook Form took over form state. What remains is true client state coordination, and for that, Redux Toolkit is still the cleanest answer in the React ecosystem.
