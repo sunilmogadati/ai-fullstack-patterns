@@ -912,7 +912,21 @@ This is the precise sequence when application code dispatches a thunk:
    - On success: `dispatch({ type: "comments/fetchComments/fulfilled", payload: <api response> })`
    - On failure: `dispatch({ type: "comments/fetchComments/rejected", error: <error info> })`
 
-5. **Each of those plain actions** flows through the normal Redux pipeline: middleware chain → reducers → store update → subscribers notified. The reducers in question are the ones declared in the slice's `extraReducers` (covered below).
+5. **Each of those plain actions** flows through the normal Redux pipeline: middleware chain → reducers → store update → subscribers notified. The reducers in question are the ones *you* declare in the slice's `extraReducers` block (covered below).
+
+### What `createAsyncThunk` generates vs. what you write
+
+This is the point most worth being precise about. `createAsyncThunk` is generating actions, not reducers. The split is clean:
+
+| `createAsyncThunk` generates dynamically | You write yourself |
+|---|---|
+| Three action **type** strings (`"comments/fetchComments/pending"`, etc.) | Three reducer **handler** functions in `extraReducers` |
+| Three action **creator** functions (`fetchComments.pending`, `.fulfilled`, `.rejected`) | The `builder.addCase(...)` calls that wire each handler to its action creator |
+| The thunk function itself (the async logic wrapper) | The actual API call inside the thunk |
+
+`createAsyncThunk` eliminates the boilerplate of declaring action types and action creators - those are mechanical and follow a strict pattern. It does **not** decide for you what state changes should happen when each action fires. That's domain logic, and it stays yours to write in `extraReducers`.
+
+The mental model: **`createAsyncThunk` produces the events. You handle them.** The events are generated; the handlers are authored.
 
 The application code does not call the reducer. The thunk does not call the reducer. Every state change still goes through `dispatch` and the reducer, exactly like for synchronous actions. The thunk is just a way to *defer* the dispatch until the async work resolves.
 
