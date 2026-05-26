@@ -4,6 +4,16 @@ A working lab for the patterns behind shipping AI-enabled web applications.
 
 The goal is to build up the full toolkit needed to ship a production AI-enabled web app. Each project is a self-contained, runnable workspace paired with a doc that explains the *why* alongside the *what*.
 
+## Why "ai-fullstack" and not just "fullstack"
+
+The "ai" in the name signals a lens, not just a topic. Modern production applications are no longer just full-stack - they are AI-enabled by design. The architectural questions worth thinking about are no longer just "how do you wire frontend to backend?" but "how do you build state coordination, data fetching, async orchestration, and component composition in a way that accommodates AI integration cleanly?" LLM streaming, agent orchestration, vector retrieval, prompt-assembled UI, long-running async AI work, observability of agent traces - these are new pieces every serious web app now has to make room for.
+
+Each project in this repo is chosen because it matters for AI-enabled production software. **Redux Toolkit** (the first project) is here as the pattern for coordinating complex client-side state - chat UIs, optimistic AI-generated content, agent observability dashboards. Future projects cover **Next.js Server Components** for server-side AI work (RAG queries, LLM calls, prompt assembly), **FastAPI sidecars** for the Python ML ecosystem (PyTorch, transformers, embeddings), **Claude Agent SDK** for agentic workflows, and **Vercel AI SDK** for token streaming - the actual production stack for AI-enabled software in 2026.
+
+The patterns will extend beyond Redux and React over time. The lens applies wherever you build production software: future projects may cover Angular, MEAN-style stacks, Java Spring Boot backends, and mobile (React Native and native). The unifying thread is the same question: **how do you build production-grade software that is AI-enabled by design, rather than retrofitted as an afterthought?**
+
+This is the patterns workspace I draw from for my own client work, including **CSI (a production diagnostic system)** - an AI-native operations and diagnostic platform I am building. The repo is not tied to any specific training program, though it overlaps with the broader industry shift toward AI-enabled full-stack development that programs like the *UT Austin McCombs / Great Learning Professional Certificate in Generative AI and Agents for Software Development* now formalize. The shift itself is the real thing: full-stack development today increasingly means AI-enabled full-stack.
+
 ## The journey
 
 A suggested progression through the projects. Each one introduces a layer that the next builds on, but folders are named by topic rather than by index, so projects can be added or rearranged without renumbering.
