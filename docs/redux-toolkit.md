@@ -651,7 +651,45 @@ flowchart TB
     class CS,CSlice,CAT,CEA,CSel,RTKQ rtk
 ```
 
-We will focus on the three most-used: `configureStore`, `createSlice`, and `createAsyncThunk`.
+Where each piece is covered in this doc:
+
+- `configureStore` - Section 12
+- `createSlice` - Section 10
+- `createAsyncThunk` - Section 14
+- `createSelector` - Section 16 (in the `useSelector` reference-equality discussion)
+- `createEntityAdapter` - below in this section
+- `RTK Query` - Section 14 (the modern default for CRUD data fetching) and Section 18 (when to reach for it)
+
+### Other RTK utilities worth knowing
+
+Two more pieces from the RTK package appear regularly in production codebases but are not the focus of the deep dives in Sections 10-14:
+
+**`createEntityAdapter`** is for **normalized collections**. When a slice holds a list of items keyed by ID (users, comments, products, posts), `createEntityAdapter` generates standardized reducers (`addOne`, `updateOne`, `removeOne`, `setAll`, etc.) and selectors (`selectAll`, `selectById`, `selectIds`). The state shape transforms from a plain array to a lookup-friendly shape:
+
+```js
+// Without createEntityAdapter (plain array shape)
+{
+  items: [
+    { id: 1, text: "..." },
+    { id: 2, text: "..." },
+    { id: 3, text: "..." }
+  ]
+}
+
+// With createEntityAdapter (normalized shape)
+{
+  ids: [1, 2, 3],
+  entities: {
+    1: { id: 1, text: "..." },
+    2: { id: 2, text: "..." },
+    3: { id: 3, text: "..." }
+  }
+}
+```
+
+The normalized shape gives O(1) lookup by ID instead of O(n) array search. Reach for `createEntityAdapter` when a slice has many records and you frequently operate on items by ID (look up by ID, update by ID, remove by ID). For small slices or slices you mostly iterate over as a whole, the plain array shape is simpler and fine.
+
+**`createSelector`** is a function from the Reselect library, re-exported by RTK so you can import it directly from `@reduxjs/toolkit`. It builds **memoized selectors** that only recompute when their inputs change. The full treatment is in Section 16, where it shows up naturally in the context of `useSelector` and the reference-equality gotcha that catches many React + Redux beginners.
 
 ### The design patterns RTK adds on top
 
