@@ -1052,6 +1052,19 @@ The **play button** (bottom of the action log) auto-advances through the actions
 
 Time-travel is also the proof that the Redux constraints (pure reducers, immutable state, dispatch-only changes) actually function as a system. If reducers had side effects or mutated state, rewinding would not be possible.
 
+### What "replay" actually means
+
+It is worth being precise about this. "Replay" in Redux can mean two different things, both enabled by the same architectural property:
+
+**Snapshot restore.** This is what DevTools does when you click an earlier action in the log. The reducers do not re-run. DevTools simply sets the store's current state to the cached snapshot it recorded at that moment. The reducers already ran when the action was originally dispatched; DevTools just remembers the result. This is why the click is instant.
+
+**Actual replay.** This is when the action stream is re-dispatched through the reducers from an initial state, and the entire history is recomputed. Two places this happens in practice:
+
+- **Hot module reload with state preservation (development).** When you change a reducer's code and save the file, DevTools can re-dispatch every recorded action through the new reducer code. State is recomputed from scratch. This is what makes "fix a bug in the reducer, see the corrected state at the same point in history" possible.
+- **Production session replay (e.g., LogRocket).** When a production tool records the action stream during a user's session, an engineer can later dispatch that stream against the same reducers in a debug environment. The reducers re-run. The full state at every step is reproduced. Bug at action 47? The engineer can recreate the user's exact state at action 46 and step into action 47.
+
+Both flavors rely on the same property: reducers are pure functions. Given the same initial state and the same sequence of actions, you always reach the same final state. Snapshots are an optimization on top of this (cache the results); actual replay is the structural truth underneath. So when the doc says "an action log you can replay," it means literally that. The architecture supports both modes; the choice between them is an implementation detail of the tool.
+
 ### Dev tool, production property
 
 The time-travel UI you see in the browser extension is a **development-only** experience. `configureStore` automatically strips the Redux DevTools integration from production builds, so end users never get this interface, and the action history is not retained in memory in production.
