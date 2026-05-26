@@ -12,7 +12,7 @@ The architecture is centralized state with strict update discipline: one store, 
 
 The patterns are well-established CS techniques: event sourcing for the action log, CQRS for separating reads from writes, the observer pattern for subscriptions, immutability and pure functions for predictability, the chain of responsibility for middleware.
 
-The API most apps use today is Redux Toolkit, which reduces what used to be 40 lines of boilerplate per feature down to a few. The five core pieces: `createSlice`, `configureStore`, `createAsyncThunk`, `useSelector`, `useDispatch`.
+The API most apps use today is Redux Toolkit, which reduces what used to be 40 lines of boilerplate per feature down to a few. The five core pieces of the integration: `createSlice`, `configureStore`, `createAsyncThunk`, `useSelector`, `useDispatch`. In 2026, **RTK Query** has become the default for CRUD-style data fetching from APIs; `createAsyncThunk` is now reserved as the escape hatch for specialized async work like multi-step workflows or non-HTTP coordination.
 
 The judgment closes the doc: Redux is not for every app, or every kind of state. Knowing when to reach for it is half the value of knowing how to use it.
 
