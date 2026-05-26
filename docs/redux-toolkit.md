@@ -4,14 +4,19 @@ Sunil Mogadati
 
 ---
 
-## 1. What we'll cover
+## 1. About this doc
 
-- What Redux is and why it exists
-- Why a large React app eventually needs it, visualized
-- Core concepts: actions, reducers, immutability, the store
-- How Redux Toolkit (RTK) simplifies Redux, with working code
-- React integration with `useDispatch` and `useSelector`
-- Recent developments: Server Components and where Redux fits in 2026
+The problem is architectural. React solves rendering very well, but it does not solve coordination of shared state across distant components in a large app. When state has to be shared by many components scattered through the tree, React's prop-based data flow breaks down at scale.
+
+The architecture is centralized state with strict update discipline: one store, immutable transitions, unidirectional data flow, an action log you can replay. The coordination problem becomes a single source of truth.
+
+The patterns are well-established CS techniques: event sourcing for the action log, CQRS for separating reads from writes, the observer pattern for subscriptions, immutability and pure functions for predictability, the chain of responsibility for middleware.
+
+The API most apps use today is Redux Toolkit, which reduces what used to be 40 lines of boilerplate per feature down to a few. The five core pieces: `createSlice`, `configureStore`, `createAsyncThunk`, `useSelector`, `useDispatch`.
+
+The judgment closes the doc: Redux is not for every app, or every kind of state. Knowing when to reach for it is half the value of knowing how to use it.
+
+The sections that follow walk through each of these in order.
 
 ---
 
