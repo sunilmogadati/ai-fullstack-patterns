@@ -1448,7 +1448,16 @@ So Server Components shrink Redux's footprint substantially - they take over the
 
 ### RTK Query: the data-fetching companion built into RTK
 
-RTK Query is **part of Redux Toolkit** - in the same `@reduxjs/toolkit` package. It is RTK's answer to "what should replace `createAsyncThunk` for most data fetching?"
+RTK Query is **part of Redux Toolkit** - in the same `@reduxjs/toolkit` package. It is RTK's answer to "what should replace `createAsyncThunk` for most data fetching from APIs?"
+
+**A clarification worth being precise about: RTK Query runs on the client.** It is not a server-side framework. What it does is provide a structured, declarative way for client-side React code to:
+
+1. **Make HTTP requests** from the browser to your API endpoints (which live on a server: Express, Django, Rails, a Go service, Supabase, whatever).
+2. **Cache the responses** in a special slice of the Redux store (managed automatically by RTK Query).
+3. **Expose the cached data** to components via auto-generated React hooks.
+4. **Handle refetching, invalidation, and request lifecycle** without manual code.
+
+So "data fetching" in this section means **HTTP requests to your API server**, not reading from the Redux store. Reading from the store is always via subscription (`useSelector` for normal slices, or RTK Query's auto-generated hooks for cached server data). RTK Query bridges the world outside Redux (the API, the network) with the world inside Redux (the store, subscriptions).
 
 You define an endpoint:
 
@@ -1491,4 +1500,4 @@ A quick note on `useReducer`. It is a React built-in hook (alongside `useState`)
 
 ### The closing judgment
 
-Redux is the architectural answer to coordinating client state at scale. It applies the same discipline that complex systems require everywhere - immutable transitions, single source of truth, replayable history - and trades a small amount of upfront ceremony for substantial downstream predictability. The scope has narrowed since 2017: Server Components took over server data display, RTK Query took over CRUD data fetching, React Hook Form took over form state. What remains is true client state coordination, and for that, Redux Toolkit is still the cleanest answer in the React ecosystem.
+Redux is the architectural answer to coordinating client state at scale. It applies the same discipline that complex systems require everywhere - immutable transitions, single source of truth, replayable history - and trades a small amount of upfront ceremony for substantial downstream predictability. The scope has narrowed since 2017: Server Components took over server-side data rendering, RTK Query took over the patterns of fetching and caching data from APIs in the client, React Hook Form took over form state. What remains is true client state coordination, and for that, Redux Toolkit is still the cleanest answer in the React ecosystem.
