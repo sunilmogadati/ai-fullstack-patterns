@@ -1,0 +1,38 @@
+{
+  "name": "brainwave",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev:server": "node --watch server/server.js",
+    "dev:client": "vite --config client/vite.config.js",
+    "build": "vite --config client/vite.config.js build",
+    "preview": "vite --config client/vite.config.js preview",
+    "seed": "node server/seed.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/bedrock-sdk": "^0.29.0",
+    "@reduxjs/toolkit": "^2.2.7",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "lucide-react": "^0.453.0",
+    "mongoose": "^8.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-redux": "^9.1.2",
+    "tailwind-merge": "^2.5.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "vite": "^5.4.0"
+  }
+}
