@@ -29,7 +29,7 @@ npm run dev
 
 Vite opens the app in your browser. Open the DevTools console: you'll see the store dispatching actions and the state changing in real time.
 
-## What this teaches
+## Key patterns demonstrated
 
 - Redux is just JavaScript. No React, no framework. The architecture is portable.
 - `createSlice` generates actions and reducers from one declaration.

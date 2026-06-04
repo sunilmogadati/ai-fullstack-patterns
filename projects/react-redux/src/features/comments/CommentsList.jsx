@@ -1,17 +1,28 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { Heart, Trash2, Loader2 } from "lucide-react";
+
 import {
   addComment,
   removeComment,
   likeComment,
   fetchComments,
 } from "./commentsSlice.js";
+import { Button } from "../../components/ui/button.jsx";
+import { Input } from "../../components/ui/input.jsx";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "../../components/ui/card.jsx";
 
 // CommentsList demonstrates the full React-Redux integration in one component.
 //
 //   - useDispatch() returns the store's dispatch function. We call it with action
-//     creators (addComment, removeComment, likeComment) and with the thunk
-//     (fetchComments) to trigger state changes.
+//     creators / thunks (addComment, removeComment, likeComment, fetchComments)
+//     to trigger state changes.
 //
 //   - useSelector(fn) reads a slice of state from the store AND subscribes the
 //     component to it. The component re-renders whenever the selected value
@@ -22,22 +33,19 @@ import {
 //
 //   - useEffect runs once on mount to dispatch fetchComments(), which fires the
 //     async thunk and populates the store with initial data from the API.
+//
+// UI primitives — Button, Input, Card — come from shadcn/ui (the "new-york"
+// style, neutral base color). Styling is Tailwind utility classes. This is the
+// production default for new React apps in 2026.
 export default function CommentsList() {
   const dispatch = useDispatch();
 
-  // Each useSelector subscribes the component to one slice of state.
-  // When state.comments.items changes (by reference), the component re-renders.
   const items = useSelector((state) => state.comments.items);
   const loading = useSelector((state) => state.comments.loading);
   const error = useSelector((state) => state.comments.error);
 
-  // Local UI state for the new-comment input. Stays out of Redux.
   const [draft, setDraft] = useState("");
 
-  // Fetch initial comments once on mount.
-  // The async thunk dispatches comments/fetchComments/pending immediately, then
-  // /fulfilled or /rejected when the API responds. The slice's extraReducers
-  // handles each lifecycle action.
   useEffect(() => {
     dispatch(fetchComments());
   }, [dispatch]);
@@ -50,65 +58,86 @@ export default function CommentsList() {
   }
 
   return (
-    <div style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
-      <h1 style={{ marginBottom: "0.25rem" }}>Comments</h1>
-      <p style={{ color: "#555", marginTop: 0 }}>
-        Redux Toolkit + React. Open Redux DevTools to watch actions and state.
-      </p>
+    <div className="mx-auto max-w-2xl px-4 py-12">
+      <Card>
+        <CardHeader>
+          <CardTitle>Comments</CardTitle>
+          <CardDescription>
+            Redux Toolkit + React, wired to a real Express backend. Open Redux
+            DevTools to watch actions and state.
+          </CardDescription>
+        </CardHeader>
 
-      <form onSubmit={handleAdd} style={{ display: "flex", gap: "0.5rem", margin: "1rem 0" }}>
-        <input
-          type="text"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Add a comment..."
-          style={{ flex: 1, padding: "0.5rem 0.75rem", fontSize: "1rem", borderRadius: 6, border: "1px solid #ccc" }}
-        />
-        <button type="submit" style={{ padding: "0.5rem 1rem", fontSize: "1rem", borderRadius: 6, border: "1px solid #2a4d7c", background: "#2a4d7c", color: "#fff", cursor: "pointer" }}>
-          Add
-        </button>
-      </form>
+        <CardContent className="space-y-4">
+          <form onSubmit={handleAdd} className="flex gap-2">
+            <Input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Add a comment..."
+              aria-label="New comment"
+            />
+            <Button type="submit" disabled={!draft.trim()}>
+              Add
+            </Button>
+          </form>
 
-      {loading === "pending" && <p style={{ color: "#555" }}>Loading initial comments...</p>}
-      {error && <p style={{ color: "#b91c1c" }}>Error: {error}</p>}
+          {loading === "pending" && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              Loading comments...
+            </div>
+          )}
 
-      <ul style={{ listStyle: "none", padding: 0 }}>
-        {items.map((c) => (
-          <li
-            key={c.id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              padding: "0.75rem 0",
-              borderBottom: "1px solid #eee",
-            }}
-          >
-            <span style={{ flex: 1, color: "#111" }}>{c.text}</span>
-            <span style={{ color: "#666", fontSize: "0.85rem", minWidth: "60px" }}>
-              {c.likes} {c.likes === 1 ? "like" : "likes"}
-            </span>
-            <button
-              onClick={() => dispatch(likeComment({ id: c.id }))}
-              style={{ padding: "0.25rem 0.65rem", fontSize: "0.85rem", borderRadius: 4, border: "1px solid #15803d", background: "#15803d", color: "#fff", cursor: "pointer" }}
+          {error && (
+            <div
+              role="alert"
+              className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
             >
-              Like
-            </button>
-            <button
-              onClick={() => dispatch(removeComment({ id: c.id }))}
-              style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem", borderRadius: 4, border: "1px solid #ddd", background: "#fafafa", cursor: "pointer" }}
-            >
-              Remove
-            </button>
-          </li>
-        ))}
-      </ul>
+              {error}
+            </div>
+          )}
 
-      {items.length === 0 && loading !== "pending" && (
-        <p style={{ color: "#888", textAlign: "center", marginTop: "2rem" }}>
-          No comments yet. Add one above.
-        </p>
-      )}
+          {items.length > 0 ? (
+            <ul className="divide-y divide-border rounded-md border">
+              {items.map((c) => (
+                <li
+                  key={c.id}
+                  className="flex items-center gap-3 px-4 py-3"
+                >
+                  <span className="flex-1 text-sm text-foreground">
+                    {c.text}
+                  </span>
+                  <span className="min-w-[3.5rem] text-right text-xs text-muted-foreground">
+                    {c.likes} {c.likes === 1 ? "like" : "likes"}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Like"
+                    onClick={() => dispatch(likeComment({ id: c.id }))}
+                  >
+                    <Heart className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Remove"
+                    onClick={() => dispatch(removeComment({ id: c.id }))}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            loading !== "pending" && (
+              <p className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+                No comments yet. Add one above.
+              </p>
+            )
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
