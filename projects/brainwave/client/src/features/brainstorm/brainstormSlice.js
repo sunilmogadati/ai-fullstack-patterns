@@ -68,6 +68,25 @@ export const toggleLike = createAsyncThunk(
     })
 );
 
+// AI thunks — pessimistic. LLM output is unpredictable in shape and content,
+// so optimistic rendering would have to fake markdown text. That's misleading.
+// A clear "thinking" spinner is the honest UX.
+//
+// Three thunks, identical shape — one POST to the corresponding kind endpoint.
+// Each returns a fresh AIOutput which the reducer slots into state.ai[kind].
+
+function makeAiThunk(kind) {
+  return createAsyncThunk(`brainstorm/generate-${kind}`, async () =>
+    request(`${API}/sessions/${SESSION_ID}/ai/${kind === "summary" ? "summarize" : kind}`, {
+      method: "POST",
+    })
+  );
+}
+
+export const generateSummary = makeAiThunk("summary");
+export const generatePrioritize = makeAiThunk("prioritize");
+export const generatePatterns = makeAiThunk("patterns");
+
 // ---- Slice ---------------------------------------------------------------
 
 const brainstormSlice = createSlice({
@@ -82,6 +101,14 @@ const brainstormSlice = createSlice({
     },
     loading: {
       session: "idle",
+      summary: "idle",
+      prioritize: "idle",
+      patterns: "idle",
+    },
+    aiError: {
+      summary: null,
+      prioritize: null,
+      patterns: null,
     },
     error: null,
   },
@@ -144,6 +171,28 @@ const brainstormSlice = createSlice({
         }
         state.error = action.error.message ?? "like failed";
       });
+
+    // ---- AI thunks (3 kinds, identical lifecycle shape) ----------------
+    // Factored — addAiCases adds the 3 reducers for one kind. Adding a 4th
+    // AI kind later is a one-line call here.
+    function addAiCases(thunk, kind) {
+      builder
+        .addCase(thunk.pending, (state) => {
+          state.loading[kind] = "pending";
+          state.aiError[kind] = null;
+        })
+        .addCase(thunk.fulfilled, (state, action) => {
+          state.loading[kind] = "idle";
+          state.ai[kind] = action.payload;
+        })
+        .addCase(thunk.rejected, (state, action) => {
+          state.loading[kind] = "idle";
+          state.aiError[kind] = action.error.message ?? `${kind} generation failed`;
+        });
+    }
+    addAiCases(generateSummary, "summary");
+    addAiCases(generatePrioritize, "prioritize");
+    addAiCases(generatePatterns, "patterns");
   },
 });
 

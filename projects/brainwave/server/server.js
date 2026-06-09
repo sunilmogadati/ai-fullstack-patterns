@@ -10,6 +10,7 @@ import cors from "cors";
 
 import { connectToDatabase } from "./db.js";
 import sessionsRouter from "./routes/sessions.js";
+import aiRouter from "./routes/ai.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
@@ -37,6 +38,7 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/sessions", sessionsRouter);
+app.use("/sessions", aiRouter); // routes are /sessions/:id/ai/* — mounted under same prefix
 
 // 404 fallthrough.
 app.use((req, res, next) => {

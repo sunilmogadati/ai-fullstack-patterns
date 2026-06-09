@@ -74,6 +74,17 @@ brainwave/
 
 For local development, the simplest setup is `AWS_PROFILE=<your-profile>` in `.env` and a valid `~/.aws/credentials` file with Bedrock permissions.
 
+### AWS Bedrock setup notes
+
+If the AI endpoints return `403 "The security token included in the request is invalid"`, the AWS SDK is not picking up valid credentials. Things to check:
+
+1. **Model access enabled.** In AWS Console → Bedrock → Model access, verify the Anthropic Claude models in the `BEDROCK_MODEL_HAIKU` / `BEDROCK_MODEL_SONNET` env vars are toggled on for your account.
+2. **Model IDs match what your account has.** Bedrock model IDs include a date suffix (e.g., `anthropic.claude-haiku-4-5-20251001-v1:0`). Different AWS accounts have different generations enabled. Adjust the env vars to the IDs your account actually shows.
+3. **Credentials path.** The SDK uses the standard AWS credential chain. `AWS_PROFILE=<your-profile>` in `.env` is usually the cleanest; alternatively `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` (+ `AWS_SESSION_TOKEN` if assuming a role).
+4. **Region matches the model.** `AWS_REGION` in `.env` must match a region where the model ID is available. Anthropic Claude on Bedrock is widely available in `us-west-2` and `us-east-1`; other regions vary.
+
+Once credentials are good, the three AI routes (`POST /sessions/:id/ai/{summarize,prioritize,patterns}`) return real Claude output rendered in the AI Insights panel.
+
 ## Run it
 
 ```bash
