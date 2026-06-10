@@ -10,6 +10,8 @@ Same architectural skeleton as the [`react-redux`](../react-redux/) + [`express-
 
 **Architecture reference:** [`docs/architecture.md`](./docs/architecture.md) — system + sequence diagrams (Mermaid), tech stack, model routing, and the full decision matrix (every significant choice, the alternative it beat, and why).
 
+**Product vision:** [`docs/product-vision.md`](./docs/product-vision.md) — where this is heading: from brainstorm-with-AI-summary to a discovery-and-alignment tool for BAs, product owners, and delivery leads (conflict detection, gap detection, versioned reports). The capability roadmap (v0.2–v0.5) lives there; architecture §7 tracks the planned decisions.
+
 > **Where this sits in the journey.** Brainwave is the second project in the AI-fullstack progression — `react-redux` + `express-comments-api` is the foundation (no AI); Brainwave adds the LLM layer; the future `customer-support-agent` project (planned) adds the agent loop, tool integration via MCP, and PII redaction. Each project introduces exactly one new architectural concern. The patterns transfer.
 
 ## Key patterns demonstrated

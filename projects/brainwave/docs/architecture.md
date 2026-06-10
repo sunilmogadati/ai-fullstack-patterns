@@ -4,6 +4,8 @@ AI-augmented group brainstorming. Members post ideas into a shared session; on d
 
 This document is the architecture reference for the project: the system diagram, the request flow for an AI generation, the tech stack, and the decision matrix — every significant choice, the alternative it beat, and why. The code is the source of truth; each decision links to the file where it lives.
 
+Sections 1–5 describe **what is built (v0.1)**. Section 7 describes **where it's heading** — the planned evolution toward the discovery-and-alignment product described in [product-vision.md](./product-vision.md). Planned decisions live in §7 and graduate into §5 when they ship.
+
 ---
 
 ## 1. System diagram
@@ -147,3 +149,63 @@ Format follows the CSI reference-architecture discipline: the choice, the altern
 Brainwave is the public worked example of an AI-native delivery pattern: take a "wishlist" app — one that never made the business case before — and show that the AI layer is **ordinary engineering**: one callsite, prompts in git, explicit cost capture, honest caching, tiered models. Nothing in section 5.2 requires an ML team. That's the point.
 
 The deliberate deviations from a greenfield-2026 default (SPA instead of Next.js, Redux instead of TanStack Query, Mongo instead of Postgres) are continuity decisions — this project extends the repo's teaching lineage rather than restarting it. A production fork would revisit F1, F2, and S1 first; the AI-layer decisions (A1–A10) transfer as-is.
+
+## 7. Target state — planned evolution
+
+The [product vision](./product-vision.md) takes Brainwave from "brainstorm + AI summary" to a discovery-and-alignment tool: multi-channel ingestion in, versioned diagnostic reports out. The capability roadmap (v0.2 → v0.5, one architectural concern per version) lives there; this section records the **architectural decisions already made for that trajectory**, so they get challenged before they get built.
+
+### 7.1 Target system diagram (additions over §1)
+
+```mermaid
+flowchart LR
+    subgraph Inputs["Ingestion (planned)"]
+        UI2["Session UI<br/>(today's path)"]
+        BULK["Bulk import API<br/>CSV / JSON — tickets, notes, surveys"]
+        SLK["Slack connector"]
+        DOCS["Reference docs<br/>PRD, constraints, policies"]
+    end
+
+    subgraph Core["Brainwave engine"]
+        DEDUP["Semantic dedup<br/>(embeddings at ingestion)"]
+        LENS["Lens pipeline<br/>themes · priorities · patterns<br/>+ conflicts · gaps (planned)"]
+        AGENT["Interviewer agent (v0.5)<br/>turns detected gaps into questions"]
+        MCPS["MCP server (v0.5)<br/>sessions + lenses as tools"]
+    end
+
+    subgraph Store["MongoDB Atlas"]
+        COLL[("Session · Idea · AIOutput")]
+        REP[("Report (v0.2)<br/>versioned · structured · scored<br/>delta vs prior version")]
+        VEC[("Atlas Vector Search (v0.3)<br/>ideas · outputs · doc chunks")]
+    end
+
+    subgraph Out["Outputs (planned)"]
+        SHARE["Shareable report links"]
+        JIRA["Jira / Azure DevOps export<br/>user stories + acceptance criteria"]
+        WH["Webhooks → Slack"]
+    end
+
+    Inputs --> DEDUP --> LENS
+    DOCS --> VEC
+    LENS <--> VEC
+    LENS --> REP
+    AGENT --> LENS
+    LENS --> COLL
+    REP --> SHARE & JIRA & WH
+    MCPS <--> LENS
+```
+
+### 7.2 Planned decisions (graduate to §5 when shipped)
+
+| # | Decision | Choice | Main alternative | Why | Target |
+|---|---|---|---|---|---|
+| P1 | Report artifact | New `Report` collection above `AIOutput` — immutable versions, sections, score, delta, share token | Keep extending `AIOutput` | An AIOutput is one lens run; a report is a composed, versioned product artifact — different lifecycle, different consumer | v0.2 |
+| P2 | Output contract | Structured JSON via tool-use schema; markdown rendered *from* structure | Freeform markdown (current) | You can diff, score, and dashboard JSON; you can't diff prose. Prerequisite for deltas and convergence scoring | v0.2 |
+| P3 | Vector store | MongoDB Atlas Vector Search | Postgres + pgvector (second datastore) | Vector search where the data already lives; one database, one backup story. Revisit if retrieval needs outgrow it | v0.3 |
+| P4 | Embedding access | Bedrock embedding models via `lib/embeddings.js` — same single-callsite discipline as `claude.js` | Direct OpenAI/Cohere APIs | Preserves the one-provider credential path (F3) and the one-callsite pattern (A3) | v0.2 |
+| P5 | Dedup strategy | Embed at ingestion, flag near-duplicates for human merge | Auto-merge; exact-match only | Bulk import makes duplicates inevitable; auto-merge destroys signal (two people asking the same thing *is* signal) | v0.2 |
+| P6 | Grounding & citations | Retrieved doc chunks injected with source IDs; lenses must cite | Ungrounded generation | A conflict or gap claim without a citation is an opinion; citations are what make the report defensible | v0.3 |
+| P7 | Public API | Versioned `/v1`, API keys, rate limiting, OpenAPI spec | UI-only product | Headless "synthesis-as-a-service" is what lets other tools feed Brainwave; also the multi-tenancy forcing function | v0.4 |
+| P8 | Integration surface | Slack in/out + Jira/Azure DevOps export first | Build many connectors early | Slack is where retros live; Jira export (stories + acceptance criteria) is what makes it a BA/PO daily tool. Everything else waits for pull | v0.4 |
+| P9 | Agent surface | MCP server exposing sessions + lenses; interviewer agent built on it | Bespoke agent loop only | MCP makes Brainwave usable *by* any agent (Claude Code, etc.) for free; the interviewer agent is then just another MCP client | v0.5 |
+
+The constraint that disciplines all of §7: **each addition must widen the gap between Brainwave and "a meeting with an AI summary"** (see product-vision.md — the differentiation list is the scope filter). Features that only polish the summary path don't ship.
