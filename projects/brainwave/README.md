@@ -8,6 +8,8 @@ A small collaborative brainstorming app. A group of friends — three to six peo
 
 Same architectural skeleton as the [`react-redux`](../react-redux/) + [`express-comments-api`](../express-comments-api/) projects, with **one new layer** — the LLM call from the backend, via AWS Bedrock. This is the bridge between a pure-CRUD full-stack app and a full agentic system.
 
+**Architecture reference:** [`docs/architecture.md`](./docs/architecture.md) — system + sequence diagrams (Mermaid), tech stack, model routing, and the full decision matrix (every significant choice, the alternative it beat, and why).
+
 > **Where this sits in the journey.** Brainwave is the second project in the AI-fullstack progression — `react-redux` + `express-comments-api` is the foundation (no AI); Brainwave adds the LLM layer; the future `customer-support-agent` project (planned) adds the agent loop, tool integration via MCP, and PII redaction. Each project introduces exactly one new architectural concern. The patterns transfer.
 
 ## Key patterns demonstrated
