@@ -12,7 +12,7 @@ Each project in this repo is chosen because it matters for AI-enabled production
 
 The patterns will extend beyond Redux and React over time. The lens applies wherever you build production software: future projects may cover Angular, MEAN-style stacks, Java Spring Boot backends, and mobile (React Native and native). The unifying thread is the same question: **how do you build production-grade software that is AI-enabled by design, rather than retrofitted as an afterthought?**
 
-This is the patterns workspace I draw from for my own client work, including **CSI (a production diagnostic system)** — an AI-native operations and diagnostic platform I am building. The shift itself is the real thing: full-stack development today increasingly means AI-enabled full-stack, where one engineer with AI assistance can hold every layer that used to require a team — but only with the architectural judgment to make AI acceleration actually work in production.
+This is the patterns workspace I draw from for my own client work, including an AI-native operations and diagnostic platform I am building. The shift itself is the real thing: full-stack development today increasingly means AI-enabled full-stack, where one engineer with AI assistance can hold every layer that used to require a team — but only with the architectural judgment to make AI acceleration actually work in production.
 
 ## Architecture at a glance
 
@@ -99,6 +99,49 @@ npm run dev
 ```
 
 Each project has its own README with what to look at and what the demo proves.
+
+## Running the full stack end-to-end
+
+The `react-redux` app talks to the `express-comments-api` backend, which persists to MongoDB. Start them in dependency order — data store first, then API, then UI. Use three terminals; run `nvm use` (Node 22) in each.
+
+**Terminal 1 — MongoDB** (the API refuses to start without it):
+
+```bash
+brew services start mongodb-community
+# If that fails to bootstrap, run mongod directly instead:
+#   mongod --config /opt/homebrew/etc/mongod.conf
+```
+
+**Terminal 2 — Comments API** (http://localhost:3001):
+
+```bash
+cd projects/express-comments-api
+nvm use            # Node 22 — required
+cp .env.example .env   # first run only
+npm install            # first run only
+npm run dev
+```
+
+Wait for `mongoose connected to mongodb://127.0.0.1:27017/comments` and `comments-api listening on http://localhost:3001`. Smoke-test: `curl http://localhost:3001/health`.
+
+**Terminal 3 — React app** (http://localhost:5174):
+
+```bash
+cd projects/react-redux
+nvm use            # Node 22 — required
+npm install            # first run only
+npm run dev
+```
+
+Open **http://localhost:5174**. Note the port: this project uses 5174 so it doesn't collide with `redux-plain-js` on 5173. The comments list loads from the API and every mutation round-trips through it.
+
+**Stopping:** `Ctrl-C` in terminals 2 and 3. For MongoDB, `brew services stop mongodb-community` (or `Ctrl-C` the `mongod` process if you started it directly).
+
+### Troubleshooting
+
+- **`TypeError: crypto$2.getRandomValues is not a function`** when starting Vite or the API → you're on an old Node version. Vite 5 needs Node 18+ (this repo pins 22). Run `nvm use` (or `nvm use 22`). If your shell defaults to an old Node, `nvm alias default 22` fixes it permanently.
+- **API exits with a Mongoose connection error** → MongoDB isn't running. Start Terminal 1 first and confirm port 27017 is listening (`nc -z 127.0.0.1 27017`).
+- **`brew services start mongodb-community` fails with `Bootstrap failed: 5`** → a launchctl glitch. Run `mongod --config /opt/homebrew/etc/mongod.conf` directly instead, or retry after `brew services stop mongodb-community`.
 
 ## How to read the docs
 
