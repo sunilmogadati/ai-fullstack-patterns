@@ -23,7 +23,7 @@ The senior-grade takeaways from working through this code:
 - **AI outputs should be cached.** A summary regenerated on every page reload would be expensive and slow. Cache in the database with `basedOnIdeaCount` so the UI can subtly warn the user when the cache is stale.
 - **Prompt engineering is code.** The three prompts live in `server/lib/prompts.js`. They are reviewed in PRs like any other source. Not hand-tuned in a runtime admin panel.
 - **The HTTP boundary is unchanged.** All the middleware-order, validation-layering, and centralized-error patterns from the comments-app project apply identically.
-- **Bedrock is the production-aligned LLM access path.** Same SDK pattern (`AnthropicBedrock` from `@anthropic-ai/bedrock-sdk`) used by enterprise CSI deployments.
+- **Bedrock is the production-aligned LLM access path.** Same SDK pattern (`AnthropicBedrock` from `@anthropic-ai/bedrock-sdk`) used in enterprise production deployments.
 
 Full discussion in [`docs/ai-augmentation-patterns.md`](../../docs/ai-augmentation-patterns.md) *(to be written)*.
 

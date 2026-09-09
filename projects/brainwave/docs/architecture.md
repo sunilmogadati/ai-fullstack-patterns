@@ -107,7 +107,7 @@ Model IDs are read from env (`BEDROCK_MODEL_HAIKU` / `BEDROCK_MODEL_SONNET`), so
 
 ## 5. Decision matrix
 
-Format follows the CSI reference-architecture discipline: the choice, the alternative it beat, and the one-line why. To challenge a row, read the linked code first.
+Format follows a reference-architecture discipline: the choice, the alternative it beat, and the one-line why. To challenge a row, read the linked code first.
 
 ### 5.1 Foundation
 
